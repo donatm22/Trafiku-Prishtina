@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
@@ -22,6 +22,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
   const [locationStatus, setLocationStatus] = useState("");
   const [notice, setNotice] = useState("");
+  const reportSheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const openFromHash = () => {
@@ -31,6 +32,36 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
   }, []);
+
+  useEffect(() => {
+    const refresh = window.setInterval(async () => {
+      try {
+        const response = await fetch("/api/reports", { headers: { accept: "application/json" } });
+        const data = await response.json() as { reports?: TrafficReport[] };
+        if (response.ok && data.reports) setReports(data.reports);
+      } catch {
+        // Keep the last good map state during a temporary connection failure.
+      }
+    }, 45_000);
+    return () => window.clearInterval(refresh);
+  }, []);
+
+  useEffect(() => {
+    if (!isReportOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    reportSheetRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeReport();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [isReportOpen]);
 
   function useCurrentLocation(forReport = false) {
     if (!navigator.geolocation) {
@@ -156,7 +187,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
         <div className="report-backdrop" role="presentation" onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeReport();
         }}>
-          <section className="report-sheet" id="raporto" role="dialog" aria-modal="true" aria-labelledby="report-title">
+          <section className="report-sheet" id="raporto" role="dialog" aria-modal="true" aria-labelledby="report-title" ref={reportSheetRef} tabIndex={-1}>
             <div className="report-sheet-header">
               <div>
                 <span className="eyebrow"><b />Raportim i ri</span>

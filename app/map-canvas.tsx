@@ -63,7 +63,7 @@ export default function MapCanvas({
           popupAnchor: [0, -36],
         });
         return (
-          <Marker key={report.id} position={[report.latitude, report.longitude]} icon={marker}>
+          <Marker key={report.id} position={[report.latitude, report.longitude]} icon={marker} title={report.title} keyboard>
             <Popup>
               <article className="map-popup">
                 <span className={`incident-badge incident-${report.type}`}>{type.icon} {type.label}</span>

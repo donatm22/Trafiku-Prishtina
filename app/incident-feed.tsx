@@ -38,10 +38,14 @@ export function IncidentFeed({
   async function share(report: TrafficReport) {
     const text = `${report.title} — ${report.locationName} · Trafiku Prishtina`;
     const url = `${window.location.origin}/#raportimet`;
-    if (navigator.share) {
-      await navigator.share({ title: report.title, text, url });
-    } else {
-      await navigator.clipboard.writeText(`${text} ${url}`);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: report.title, text, url });
+      } else {
+        await navigator.clipboard.writeText(`${text} ${url}`);
+      }
+    } catch {
+      // Closing the native share sheet is not an error for the user.
     }
   }
 
@@ -56,11 +60,11 @@ export function IncidentFeed({
           <strong>{visibleReports.length} aktive</strong>
         </div>
         <div className="report-filters" role="group" aria-label="Filtro raportimet">
-          <button className={filter === "all" ? "is-active" : ""} onClick={() => setFilter("all")} type="button">
+          <button className={filter === "all" ? "is-active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")} type="button">
             Të gjitha <b>{reports.length}</b>
           </button>
           {(Object.entries(INCIDENT_TYPES) as [IncidentType, typeof INCIDENT_TYPES[IncidentType]][]).map(([value, type]) => (
-            <button className={filter === value ? "is-active" : ""} onClick={() => setFilter(value)} type="button" key={value}>
+            <button className={filter === value ? "is-active" : ""} aria-pressed={filter === value} onClick={() => setFilter(value)} type="button" key={value}>
               <i style={{ backgroundColor: type.color }} />{type.label}
             </button>
           ))}
@@ -91,7 +95,7 @@ export function IncidentFeed({
                   </div>
                 </div>
                 <div className="incident-card-actions">
-                  <button className={confirmed.has(report.id) ? "is-confirmed" : ""} type="button" onClick={() => confirm(report.id)}>
+                  <button className={confirmed.has(report.id) ? "is-confirmed" : ""} aria-pressed={confirmed.has(report.id)} type="button" onClick={() => confirm(report.id)}>
                     <CheckCircle2 size={16} />
                     <span>{confirmed.has(report.id) ? "Konfirmuar" : "Ende këtu"}</span>
                     <b>{report.confirmations}</b>
