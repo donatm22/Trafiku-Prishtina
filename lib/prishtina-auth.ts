@@ -13,6 +13,7 @@ export async function getPrishtinaUser(cookieHeader: string | null): Promise<Pri
       headers: { accept: "application/json", cookie: cookieHeader },
       cache: "no-store",
       redirect: "manual",
+      signal: AbortSignal.timeout(2500),
     });
     if (!response.ok) return null;
     const data = await response.json() as { user?: PrishtinaUser | null };
