@@ -20,8 +20,19 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "Trafiku Prishtina",
       title: "Shihe trafikun. Raporto çfarë po ndodh.",
       description: "Harta e komunitetit për lëvizje më të informuar në Prishtinë.",
+      images: [{
+        url: new URL("/og.png", metadataBase).toString(),
+        width: 1731,
+        height: 909,
+        alt: "Trafiku Prishtina — harta e raportimeve të trafikut",
+      }],
     },
-    twitter: { card: "summary_large_image" },
+    twitter: {
+      card: "summary_large_image",
+      title: "Trafiku Prishtina",
+      description: "Shihe trafikun. Raporto çfarë po ndodh.",
+      images: [new URL("/og.png", metadataBase).toString()],
+    },
     icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
   };
 }
