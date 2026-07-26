@@ -1,3 +1,6 @@
+import { SEED_REPORTS } from "../lib/traffic";
+import { TrafficDashboard } from "./traffic-dashboard";
+
 export default function Home() {
   return (
     <main>
@@ -11,11 +14,7 @@ export default function Home() {
           <a className="button button-primary" href="#raporto">+ Raporto ngjarje</a>
         </div>
       </section>
-      <section className="page-shell map-placeholder" aria-label="Harta e trafikut po përgatitet">
-        <span className="brand-mark">T</span>
-        <strong>Harta e trafikut</strong>
-        <p>Kolona, aksidente, rrugë të mbyllura dhe rreziqe.</p>
-      </section>
+      <TrafficDashboard reports={SEED_REPORTS} />
     </main>
   );
 }
