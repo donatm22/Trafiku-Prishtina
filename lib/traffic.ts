@@ -8,7 +8,7 @@ export const INCIDENT_TYPES = {
 export type IncidentType = keyof typeof INCIDENT_TYPES;
 
 export type TrafficReport = {
-  id: number;
+  id: string;
   type: IncidentType;
   title: string;
   description: string;
@@ -23,7 +23,7 @@ export type TrafficReport = {
 
 export const SEED_REPORTS: TrafficReport[] = [
   {
-    id: 1,
+    id: "seed-flamuri",
     type: "jam",
     title: "Kolonë e dendur te Rrethi i Flamurit",
     description: "Lëvizje shumë e ngadalshme në drejtim të qendrës.",
@@ -36,7 +36,7 @@ export const SEED_REPORTS: TrafficReport[] = [
     expiresAt: "2026-07-26T17:48:00.000Z",
   },
   {
-    id: 2,
+    id: "seed-ulpiana",
     type: "accident",
     title: "Aksident i lehtë në Ulpianë",
     description: "Dy automjete në krahun e djathtë; kalimi është i mundur.",
@@ -49,7 +49,7 @@ export const SEED_REPORTS: TrafficReport[] = [
     expiresAt: "2026-07-26T18:04:00.000Z",
   },
   {
-    id: 3,
+    id: "seed-garibaldi",
     type: "closure",
     title: "Korsi e mbyllur pranë Katedrales",
     description: "Punime në rrjet; përdorni rrugët anësore.",
@@ -62,7 +62,7 @@ export const SEED_REPORTS: TrafficReport[] = [
     expiresAt: "2026-07-26T20:32:00.000Z",
   },
   {
-    id: 4,
+    id: "seed-dardania",
     type: "hazard",
     title: "Pusetë e dëmtuar në Dardani",
     description: "Rrezik në korsinë e majtë, vozitni me kujdes.",
@@ -75,7 +75,7 @@ export const SEED_REPORTS: TrafficReport[] = [
     expiresAt: "2026-07-27T01:58:00.000Z",
   },
   {
-    id: 5,
+    id: "seed-veternik",
     type: "jam",
     title: "Ngadalësim te Veterniku",
     description: "Fluks i shtuar në hyrje të qytetit.",
@@ -88,7 +88,7 @@ export const SEED_REPORTS: TrafficReport[] = [
     expiresAt: "2026-07-26T18:12:00.000Z",
   },
   {
-    id: 6,
+    id: "seed-parku",
     type: "jam",
     title: "Kolonë pranë Parkut të Qytetit",
     description: "Pritje rreth 10 minuta në kryqëzim.",
