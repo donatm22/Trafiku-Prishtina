@@ -14,7 +14,7 @@ export default function Home() {
           <a className="button button-primary" href="#raporto">+ Raporto ngjarje</a>
         </div>
       </section>
-      <TrafficDashboard reports={SEED_REPORTS} />
+      <TrafficDashboard initialReports={SEED_REPORTS} />
     </main>
   );
 }
