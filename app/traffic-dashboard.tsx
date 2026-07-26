@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
+import { IncidentFeed } from "./incident-feed";
 
 const MapCanvas = dynamic(() => import("./map-canvas"), {
   ssr: false,
@@ -62,7 +63,8 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const type = String(form.get("type")) as IncidentType;
     const payload = {
       type,
@@ -86,10 +88,22 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       setFocusPoint({ latitude: data.report.latitude, longitude: data.report.longitude });
       closeReport();
       setNotice("Raportimi u publikua. Faleminderit që po e ndihmon qytetin.");
-      event.currentTarget.reset();
+      formElement.reset();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Raportimi nuk u ruajt.");
     }
+  }
+
+  async function confirmReport(id: string) {
+    const response = await fetch(`/api/reports/${encodeURIComponent(id)}/confirm`, { method: "POST" });
+    const data = await response.json() as { confirmations?: number; error?: string };
+    if (!response.ok || typeof data.confirmations !== "number") {
+      setNotice(data.error ?? "Konfirmimi nuk u ruajt.");
+      return;
+    }
+    setReports((current) => current.map((report) => (
+      report.id === id ? { ...report, confirmations: data.confirmations! } : report
+    )));
   }
 
   return (
@@ -129,6 +143,14 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
         {locationStatus && <p className="location-status" role="status">{locationStatus}</p>}
         {notice && !isReportOpen && <div className="success-toast" role="status"><Check size={18} />{notice}</div>}
       </section>
+      <IncidentFeed
+        reports={reports}
+        onConfirm={confirmReport}
+        onSelect={(report) => {
+          setFocusPoint({ latitude: report.latitude, longitude: report.longitude });
+          document.getElementById("harta")?.scrollIntoView({ behavior: "smooth" });
+        }}
+      />
 
       {isReportOpen && (
         <div className="report-backdrop" role="presentation" onMouseDown={(event) => {
