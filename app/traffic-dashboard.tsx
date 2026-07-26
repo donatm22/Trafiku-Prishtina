@@ -34,7 +34,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   }, []);
 
   useEffect(() => {
-    const refresh = window.setInterval(async () => {
+    async function refreshReports() {
       try {
         const response = await fetch("/api/reports", { headers: { accept: "application/json" } });
         const data = await response.json() as { reports?: TrafficReport[] };
@@ -42,7 +42,9 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       } catch {
         // Keep the last good map state during a temporary connection failure.
       }
-    }, 45_000);
+    }
+    void refreshReports();
+    const refresh = window.setInterval(refreshReports, 45_000);
     return () => window.clearInterval(refresh);
   }, []);
 

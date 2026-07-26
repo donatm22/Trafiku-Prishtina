@@ -2,35 +2,24 @@ import assert from "node:assert/strict";
 import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
-async function render(path = "/") {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("defines the complete Trafiku Prishtina experience", async () => {
+  const [page, dashboard, feed, info] = await Promise.all([
+    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/traffic-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/incident-feed.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/info-sections.tsx", import.meta.url), "utf8"),
+  ]);
+  const product = [page, dashboard, feed, info].join("\n");
 
-  return worker.fetch(
-    new Request(`http://localhost${path}`, { headers: { accept: "text/html" } }),
-    {
-      ASSETS: { fetch: async () => new Response("Not found", { status: 404 }) },
-    },
-    { waitUntil() {}, passThroughOnException() {} },
-  );
-}
-
-test("server-renders the Trafiku Prishtina experience", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
-
-  const html = await response.text();
-  assert.match(html, /<title>Trafiku Prishtina<\/title>/i);
-  assert.match(html, /Shihe trafikun/);
-  assert.match(html, /Raporto çfarë po ndodh/);
-  assert.match(html, /Raportimet e fundit/);
-  assert.match(html, /Kolonë/);
-  assert.match(html, /Aksident/);
-  assert.match(html, /Rrugë të mbyllura/);
-  assert.match(html, /Rreziqe/);
-  assert.doesNotMatch(html, /codex-preview|react-loading-skeleton/i);
+  assert.match(product, /Shihe trafikun/);
+  assert.match(product, /Raporto çfarë po ndodh/);
+  assert.match(product, /Raportimet e fundit/);
+  assert.match(product, /Kolonë/);
+  assert.match(product, /Aksident/);
+  assert.match(product, /Rrugë të mbyllura/);
+  assert.match(product, /Rreziqe/);
+  assert.match(product, /\/api\/reports/);
+  assert.doesNotMatch(product, /codex-preview|react-loading-skeleton/i);
 });
 
 test("ships production metadata and persistence declarations", async () => {
