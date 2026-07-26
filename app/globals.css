@@ -164,6 +164,32 @@ button,select { cursor:pointer; }
 .incident-card-actions button:hover { border-color:#aaa39a; color:var(--ink); }
 .incident-card-actions button.is-confirmed { border-color:#b9d7c8; background:#edf7f1; color:var(--green); }
 
+.incident-types-section { padding:64px 0 76px; background:var(--paper); }
+.incident-type-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+.incident-type-grid article { padding:20px; border:1px solid var(--line); border-radius:7px; background:#fff; }
+.type-icon { width:42px; height:42px; display:grid; place-items:center; border-radius:6px; color:#fff; }
+.type-icon-red { background:var(--red); }
+.type-icon-ink { background:var(--ink); }
+.type-icon-brown { background:#7a4b28; }
+.type-icon-amber { background:#d58919; }
+.incident-type-grid h3 { margin:14px 0 5px; font-size:1rem; }
+.incident-type-grid p { margin:0; color:var(--muted); font-size:.78rem; }
+.how-section { padding:74px 0; background:#fff; border-block:1px solid var(--line); }
+.how-layout { display:grid; grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr); gap:70px; align-items:start; }
+.how-copy h2 { max-width:520px; margin:12px 0 14px; font-size:clamp(2rem,4vw,3.2rem); line-height:1.08; letter-spacing:-.05em; }
+.how-copy p { max-width:500px; margin:0; color:var(--muted); font-size:1rem; }
+.how-steps { display:grid; margin:0; padding:0; list-style:none; border-top:1px solid var(--line); }
+.how-steps li { display:grid; grid-template-columns:38px 34px minmax(0,1fr); gap:10px; align-items:center; padding:18px 4px; border-bottom:1px solid var(--line); }
+.how-steps li>span { color:#b2aca3; font-size:.72rem; font-weight:900; }
+.how-steps li>svg { color:var(--red-dark); }
+.how-steps strong,.how-steps p { display:block; }
+.how-steps p { margin:2px 0 0; color:var(--muted); font-size:.78rem; }
+.safety-strip { padding:24px 0; background:var(--ink); color:#fff; }
+.safety-strip .page-shell { display:flex; align-items:center; gap:14px; }
+.safety-strip svg { flex:0 0 auto; color:#ef9ca1; }
+.safety-strip strong { font-size:.92rem; }
+.safety-strip p { margin:1px 0 0; color:#c9c5c0; font-size:.78rem; }
+
 .site-footer { background:#211f1d; color:#fff; padding:44px 0 34px; }
 .footer-inner { width:min(1180px,calc(100% - 40px)); margin:auto; display:grid; grid-template-columns:1fr auto; gap:20px; }
 .footer-brand { margin-bottom:8px; }
@@ -199,6 +225,13 @@ button,select { cursor:pointer; }
   .section-heading h2 { font-size:1.4rem; }
   .report-list { grid-template-columns:1fr; }
   .incident-card { padding:15px; }
+  .incident-types-section { padding:42px 0 52px; }
+  .incident-type-grid { grid-template-columns:1fr 1fr; }
+  .incident-type-grid article { padding:16px; }
+  .how-section { padding:52px 0; }
+  .how-layout { grid-template-columns:1fr; gap:34px; }
+  .how-copy h2 { font-size:2.2rem; }
+  .safety-strip .page-shell { align-items:flex-start; }
   .footer-inner { grid-template-columns:1fr; width:calc(100% - 24px); padding-bottom:10px; }
   .footer-links { gap:12px 18px; }
   .mobile-nav { display:grid; grid-template-columns:repeat(5,1fr); position:fixed; z-index:60; left:0; right:0; bottom:0; height:calc(66px + env(safe-area-inset-bottom)); padding-bottom:env(safe-area-inset-bottom); background:#fff; border-top:1px solid var(--line); box-shadow:0 -8px 25px rgba(30,27,24,.08); }

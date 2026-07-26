@@ -1,7 +1,18 @@
-import { SEED_REPORTS } from "../lib/traffic";
+import { listTrafficReports } from "../db/traffic-store";
+import { SEED_REPORTS, type TrafficReport } from "../lib/traffic";
+import { InfoSections } from "./info-sections";
 import { TrafficDashboard } from "./traffic-dashboard";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  let reports: TrafficReport[];
+  try {
+    reports = await listTrafficReports();
+  } catch {
+    reports = SEED_REPORTS;
+  }
+
   return (
     <main>
       <section className="traffic-intro">
@@ -14,7 +25,8 @@ export default function Home() {
           <a className="button button-primary" href="#raporto">+ Raporto ngjarje</a>
         </div>
       </section>
-      <TrafficDashboard initialReports={SEED_REPORTS} />
+      <TrafficDashboard initialReports={reports.length ? reports : SEED_REPORTS} />
+      <InfoSections />
     </main>
   );
 }
