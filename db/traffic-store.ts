@@ -16,6 +16,7 @@ const createTableSql = `CREATE TABLE IF NOT EXISTS traffic_reports (
   longitude REAL NOT NULL,
   severity TEXT NOT NULL CHECK (severity IN ('low','medium','high')),
   confirmations INTEGER NOT NULL DEFAULT 1,
+  reporter_email TEXT,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL
 )`;
@@ -35,6 +36,10 @@ export async function ensureTrafficSchema() {
     db.prepare("CREATE INDEX IF NOT EXISTS traffic_reports_expires_idx ON traffic_reports (expires_at)"),
     db.prepare("CREATE INDEX IF NOT EXISTS traffic_reports_type_idx ON traffic_reports (type)"),
   ]);
+  const columns = await db.prepare("PRAGMA table_info(traffic_reports)").all<{ name: string }>();
+  if (!columns.results.some((column) => column.name === "reporter_email")) {
+    await db.prepare("ALTER TABLE traffic_reports ADD COLUMN reporter_email TEXT").run();
+  }
 
   const count = await db.prepare("SELECT COUNT(*) AS count FROM traffic_reports").first<{ count: number }>();
   if (!count?.count) {
@@ -73,7 +78,7 @@ export async function listTrafficReports(): Promise<TrafficReport[]> {
   return result.results;
 }
 
-export async function createTrafficReport(input: NewTrafficReport): Promise<TrafficReport> {
+export async function createTrafficReport(input: NewTrafficReport, reporterEmail: string): Promise<TrafficReport> {
   await ensureTrafficSchema();
   const now = new Date();
   const durationHours: Record<IncidentType, number> = {
@@ -91,8 +96,8 @@ export async function createTrafficReport(input: NewTrafficReport): Promise<Traf
   };
   await getBinding()
     .prepare(`INSERT INTO traffic_reports
-      (id,type,title,description,location_name,latitude,longitude,severity,confirmations,created_at,expires_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+      (id,type,title,description,location_name,latitude,longitude,severity,confirmations,reporter_email,created_at,expires_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
     .bind(
       report.id,
       report.type,
@@ -103,6 +108,7 @@ export async function createTrafficReport(input: NewTrafficReport): Promise<Traf
       report.longitude,
       report.severity,
       report.confirmations,
+      reporterEmail,
       report.createdAt,
       report.expiresAt,
     )

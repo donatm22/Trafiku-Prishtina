@@ -1,3 +1,5 @@
+import { AccountMenu, MobileAccountLink } from "./account-menu";
+
 export function Header() {
   return (
     <header className="site-header">
@@ -14,6 +16,7 @@ export function Header() {
         <div className="header-actions">
           <a className="prishtina-link" href="https://prishtina.online">Prishtina.online ↗</a>
           <a className="button button-primary button-small" href="#raporto">+ Raporto</a>
+          <AccountMenu />
         </div>
       </div>
     </header>
@@ -49,7 +52,7 @@ export function MobileNavigation() {
       <a href="#raportimet"><span aria-hidden="true">≡</span>Raportimet</a>
       <a className="mobile-create" href="#raporto"><span aria-hidden="true">+</span>Raporto</a>
       <a href="#njoftimet"><span aria-hidden="true">◌</span>Njoftimet</a>
-      <a href="#rreth"><span aria-hidden="true">●</span>Rreth</a>
+      <MobileAccountLink />
     </nav>
   );
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `traffic_reports` ADD `reporter_email` text;

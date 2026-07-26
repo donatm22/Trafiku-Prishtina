@@ -45,6 +45,18 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .header-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
 .prishtina-link { color:var(--muted); font-size:.82rem; font-weight:750; }
 .prishtina-link:hover { color:var(--red-dark); }
+.account-links,.account-signed-in { display:flex; align-items:center; gap:8px; }
+.account-register-link { color:var(--red-dark); font-size:.76rem; font-weight:850; }
+.account-loading { width:38px; height:38px; display:grid; place-items:center; }
+.account-loading i { width:22px; height:22px; border:2px solid var(--line); border-top-color:var(--red); border-radius:50%; animation:spin .8s linear infinite; }
+.account-signed-in { padding-left:3px; }
+.avatar { width:36px; height:36px; display:inline-grid; place-items:center; flex:0 0 auto; border-radius:50%; background:var(--stone); color:var(--red-dark); font-size:.85rem; font-weight:900; text-transform:uppercase; }
+.account-name { display:grid; max-width:150px; line-height:1.15; }
+.account-name small { color:var(--red-dark); font-size:.58rem; font-weight:850; text-transform:uppercase; letter-spacing:.04em; }
+.account-name strong { overflow:hidden; color:var(--ink); font-size:.74rem; text-overflow:ellipsis; white-space:nowrap; }
+.account-logout { width:34px; height:34px; display:grid; place-items:center; border:1px solid var(--line); border-radius:50%; background:#fff; color:var(--muted); }
+.account-logout:hover { border-color:#e1b6b8; background:var(--soft-red); color:var(--red-dark); }
+@keyframes spin { to { transform:rotate(360deg); } }
 
 .traffic-intro { background:#fff; border-bottom:1px solid var(--line); }
 .intro-inner { min-height:280px; display:flex; align-items:center; justify-content:space-between; gap:40px; padding-block:48px; }
@@ -206,6 +218,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
   .site-header { position:sticky; }
   .header-inner { height:60px; width:calc(100% - 24px); gap:8px; }
   .desktop-nav,.prishtina-link,.header-actions .button-primary { display:none; }
+  .account-register-link,.account-name { display:none; }
+  .account-links { gap:0; }
+  .account-links .button { min-height:40px; padding-inline:11px; }
+  .account-signed-in { gap:5px; }
+  .account-signed-in .avatar { width:32px; height:32px; }
+  .account-logout { width:32px; height:32px; }
   .brand { font-size:1rem; }
   .brand-mark { width:27px; height:30px; }
   .intro-inner { min-height:auto; display:grid; padding-block:38px 34px; gap:24px; }

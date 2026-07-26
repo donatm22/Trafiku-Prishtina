@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createTrafficReport, listTrafficReports } from "../../../db/traffic-store";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../../../lib/traffic";
+import { getPrishtinaUser } from "../../../lib/prishtina-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const user = await getPrishtinaUser(request.headers.get("cookie"));
+  if (!user) {
+    return NextResponse.json({ error: "Kyçu me llogarinë Prishtina.online për të raportuar." }, { status: 401 });
+  }
   let body: Partial<TrafficReport>;
   try {
     body = await request.json() as Partial<TrafficReport>;
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
       latitude,
       longitude,
       severity: severity as TrafficReport["severity"],
-    });
+    }, user.email);
     return NextResponse.json({ report }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Raportimi nuk u ruajt. Provo përsëri." }, { status: 503 });

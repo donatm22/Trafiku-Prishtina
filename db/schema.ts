@@ -12,6 +12,7 @@ export const trafficReports = sqliteTable(
     longitude: real("longitude").notNull(),
     severity: text("severity", { enum: ["low", "medium", "high"] }).notNull(),
     confirmations: integer("confirmations").notNull().default(1),
+    reporterEmail: text("reporter_email"),
     createdAt: text("created_at").notNull(),
     expiresAt: text("expires_at").notNull(),
   },

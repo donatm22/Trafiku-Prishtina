@@ -8,6 +8,13 @@
       "when": 1785079816978,
       "tag": "0000_broken_blue_shield",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785081472312,
+      "tag": "0001_fine_pyro",
+      "breakpoints": true
     }
   ]
 }

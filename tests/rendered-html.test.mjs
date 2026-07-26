@@ -36,3 +36,30 @@ test("ships production metadata and persistence declarations", async () => {
   await access(new URL("../public/og.png", import.meta.url));
   await access(new URL("../drizzle/0000_broken_blue_shield.sql", import.meta.url));
 });
+
+test("uses Prishtina.online as the shared account authority", async () => {
+  const [authHelper, accountMenu, loginPage, registerPage, logoutRoute, reportsApi, confirmApi, schema] = await Promise.all([
+    readFile(new URL("../lib/prishtina-auth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/account-menu.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/login/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/register/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/auth/logout/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/reports/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/reports/[id]/confirm/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(authHelper, /https:\/\/prishtina\.online/);
+  assert.match(authHelper, /\/api\/sso\/session/);
+  assert.match(authHelper, /https:\/\/trafiku\.prishtina\.online/);
+  assert.match(accountMenu, /\/api\/auth\/session/);
+  assert.match(accountMenu, /\/api\/auth\/logout/);
+  assert.match(loginPage, /prishtinaAuthUrl\("login"/);
+  assert.match(registerPage, /prishtinaAuthUrl\("register"/);
+  assert.match(logoutRoute, /__Secure-prishtina\.session-token/);
+  assert.match(logoutRoute, /domain: "\.prishtina\.online"/);
+  assert.match(reportsApi, /getPrishtinaUser/);
+  assert.match(confirmApi, /getPrishtinaUser/);
+  assert.match(schema, /reporterEmail: text\("reporter_email"\)/);
+  await access(new URL("../drizzle/0001_fine_pyro.sql", import.meta.url));
+});

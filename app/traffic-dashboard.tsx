@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
+import type { PrishtinaUser } from "../lib/prishtina-auth";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
 
@@ -22,15 +23,20 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
   const [locationStatus, setLocationStatus] = useState("");
   const [notice, setNotice] = useState("");
+  const [user, setUser] = useState<PrishtinaUser | null | undefined>(undefined);
   const reportSheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     const openFromHash = () => {
-      if (window.location.hash === "#raporto") setReportOpen(true);
+      if (window.location.hash === "#raporto") void openReport();
     };
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
+  }, [user]);
+
+  useEffect(() => {
+    void loadSession();
   }, []);
 
   useEffect(() => {
@@ -83,7 +89,28 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     );
   }
 
-  function openReport() {
+  async function loadSession(): Promise<PrishtinaUser | null> {
+    try {
+      const response = await fetch("/api/auth/session", { cache: "no-store" });
+      const data = await response.json() as { user?: PrishtinaUser | null };
+      const currentUser = data.user ?? null;
+      setUser(currentUser);
+      return currentUser;
+    } catch {
+      setUser(null);
+      return null;
+    }
+  }
+
+  async function requireUser(returnTo: string): Promise<boolean> {
+    const currentUser = user === undefined ? await loadSession() : user;
+    if (currentUser) return true;
+    window.location.assign(`/login?returnTo=${encodeURIComponent(returnTo)}`);
+    return false;
+  }
+
+  async function openReport() {
+    if (!await requireUser("/#raporto")) return;
     setReportOpen(true);
     setNotice("");
     window.history.replaceState(null, "", "#raporto");
@@ -116,6 +143,10 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
         body: JSON.stringify(payload),
       });
       const data = await response.json() as { report?: TrafficReport; error?: string };
+      if (response.status === 401) {
+        window.location.assign(`/login?returnTo=${encodeURIComponent("/#raporto")}`);
+        return;
+      }
       if (!response.ok || !data.report) throw new Error(data.error ?? "Raportimi nuk u ruajt.");
       setReports((current) => [data.report!, ...current]);
       setFocusPoint({ latitude: data.report.latitude, longitude: data.report.longitude });
@@ -128,6 +159,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   }
 
   async function confirmReport(id: string) {
+    if (!await requireUser("/#raportimet")) return;
     const response = await fetch(`/api/reports/${encodeURIComponent(id)}/confirm`, { method: "POST" });
     const data = await response.json() as { confirmations?: number; error?: string };
     if (!response.ok || typeof data.confirmations !== "number") {
@@ -163,7 +195,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
               setLocationStatus("Pika e raportimit u zgjodh në hartë.");
             }}
           />
-          <button className="map-report-button button button-primary" type="button" onClick={openReport}>
+          <button className="map-report-button button button-primary" type="button" onClick={() => void openReport()}>
             + Raporto ngjarje
           </button>
           <div className="map-legend" aria-label="Legjenda e hartës">
