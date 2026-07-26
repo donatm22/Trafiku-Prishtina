@@ -1,37 +1,40 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
+import { Footer, Header, MobileNavigation } from "./site-shell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+export async function generateMetadata(): Promise<Metadata> {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") ?? requestHeaders.get("host") ?? "trafiku.prishtina.online";
+  const protocol = host.includes("localhost") ? "http" : "https";
+  const metadataBase = new URL(`${protocol}://${host}`);
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+  return {
+    metadataBase,
+    title: { default: "Trafiku Prishtina", template: "%s | Trafiku Prishtina" },
+    description: "Raportime të drejtpërdrejta për kolonat, aksidentet, rrugët e mbyllura dhe rreziqet në Prishtinë.",
+    applicationName: "Trafiku Prishtina",
+    openGraph: {
+      type: "website",
+      locale: "sq_XK",
+      siteName: "Trafiku Prishtina",
+      title: "Shihe trafikun. Raporto çfarë po ndodh.",
+      description: "Harta e komunitetit për lëvizje më të informuar në Prishtinë.",
+    },
+    twitter: { card: "summary_large_image" },
+    icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+  };
+}
 
-export const metadata: Metadata = {
-  title: "Starter Project",
-  description: "A clean starting point for building your site.",
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
-  },
-};
-
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        {children}
+    <html lang="sq">
+      <body>
+        <a className="skip-link" href="#main-content">Kalo te përmbajtja</a>
+        <Header />
+        <div id="main-content">{children}</div>
+        <Footer />
+        <MobileNavigation />
       </body>
     </html>
   );
