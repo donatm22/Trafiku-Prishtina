@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Clock3, MapPin, Share2 } from "lucide-react";
+import { CheckCircle2, CircleOff, Clock3, MapPin, Share2 } from "lucide-react";
+import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 
 type Filter = "all" | IncidentType;
@@ -16,15 +17,19 @@ function relativeTime(value: string) {
 export function IncidentFeed({
   reports,
   onConfirm,
+  onClear,
   onSelect,
 }: {
   reports: TrafficReport[];
   onConfirm: (id: string) => Promise<boolean>;
+  onClear: (id: string) => Promise<{ saved: boolean; cleared: boolean }>;
   onSelect: (report: TrafficReport) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
+  const [votedClear, setVotedClear] = useState<Set<string>>(new Set());
   const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
+  const [pendingClear, setPendingClear] = useState<string | null>(null);
   const visibleReports = useMemo(
     () => filter === "all" ? reports : reports.filter((report) => report.type === filter),
     [filter, reports],
@@ -38,6 +43,19 @@ export function IncidentFeed({
       if (saved) setConfirmed((current) => new Set(current).add(id));
     } finally {
       setPendingConfirm(null);
+    }
+  }
+
+  async function clear(id: string) {
+    if (votedClear.has(id) || pendingClear === id) return;
+    setPendingClear(id);
+    try {
+      const result = await onClear(id);
+      if (result.saved && !result.cleared) {
+        setVotedClear((current) => new Set(current).add(id));
+      }
+    } finally {
+      setPendingClear(null);
     }
   }
 
@@ -118,6 +136,18 @@ export function IncidentFeed({
                     <CheckCircle2 size={16} />
                     <span>{pendingConfirm === report.id ? "Duke ruajtur…" : confirmed.has(report.id) ? "Konfirmuar" : "Ende këtu"}</span>
                     <b>{report.confirmations}</b>
+                  </button>
+                  <button
+                    className={votedClear.has(report.id) ? "is-clearing" : ""}
+                    aria-pressed={votedClear.has(report.id)}
+                    aria-busy={pendingClear === report.id}
+                    disabled={pendingClear === report.id || votedClear.has(report.id)}
+                    type="button"
+                    onClick={() => clear(report.id)}
+                  >
+                    <CircleOff size={16} />
+                    <span>{pendingClear === report.id ? "Duke ruajtur…" : votedClear.has(report.id) ? "Votuar" : "Nuk është më"}</span>
+                    <b>{report.clearVotes}/{CLEAR_VOTES_REQUIRED}</b>
                   </button>
                   <button type="button" onClick={() => share(report)} aria-label={`Shpërndaje raportimin ${report.title}`}>
                     <Share2 size={16} />

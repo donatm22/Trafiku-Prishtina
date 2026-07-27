@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
+import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
 
@@ -146,18 +147,44 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   async function confirmReport(id: string): Promise<boolean> {
     try {
       const response = await fetch(`/api/reports/${encodeURIComponent(id)}/confirm`, { method: "POST" });
-      const data = await response.json() as { confirmations?: number; error?: string };
-      if (!response.ok || typeof data.confirmations !== "number") {
+      const data = await response.json() as { confirmations?: number; clearVotes?: number; error?: string };
+      if (!response.ok || typeof data.confirmations !== "number" || typeof data.clearVotes !== "number") {
         setNotice(data.error ?? "Konfirmimi nuk u ruajt.");
         return false;
       }
       setReports((current) => current.map((report) => (
-        report.id === id ? { ...report, confirmations: data.confirmations! } : report
+        report.id === id
+          ? { ...report, confirmations: data.confirmations!, clearVotes: data.clearVotes!, lastConfirmedAt: new Date().toISOString() }
+          : report
       )));
       return true;
     } catch {
       setNotice("Konfirmimi nuk u ruajt. Kontrollo lidhjen dhe provo përsëri.");
       return false;
+    }
+  }
+
+  async function clearReport(id: string): Promise<{ saved: boolean; cleared: boolean }> {
+    try {
+      const response = await fetch(`/api/reports/${encodeURIComponent(id)}/clear`, { method: "POST" });
+      const data = await response.json() as { clearVotes?: number; cleared?: boolean; error?: string };
+      if (!response.ok || typeof data.clearVotes !== "number" || typeof data.cleared !== "boolean") {
+        setNotice(data.error ?? "Vota për mbyllje nuk u ruajt.");
+        return { saved: false, cleared: false };
+      }
+      if (data.cleared) {
+        setReports((current) => current.filter((report) => report.id !== id));
+        setNotice("Raportimi u mbyll nga komuniteti. Faleminderit për përditësimin.");
+      } else {
+        setReports((current) => current.map((report) => (
+          report.id === id ? { ...report, clearVotes: data.clearVotes! } : report
+        )));
+        setNotice(`Vota u ruajt. Duhen edhe ${Math.max(0, CLEAR_VOTES_REQUIRED - data.clearVotes)} për ta mbyllur raportimin.`);
+      }
+      return { saved: true, cleared: data.cleared };
+    } catch {
+      setNotice("Vota për mbyllje nuk u ruajt. Kontrollo lidhjen dhe provo përsëri.");
+      return { saved: false, cleared: false };
     }
   }
 
@@ -202,6 +229,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       <IncidentFeed
         reports={reports}
         onConfirm={confirmReport}
+        onClear={clearReport}
         onSelect={(report) => {
           setFocusPoint({ latitude: report.latitude, longitude: report.longitude });
           document.getElementById("harta")?.scrollIntoView({ behavior: "smooth" });

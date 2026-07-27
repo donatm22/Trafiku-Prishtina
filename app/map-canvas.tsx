@@ -4,6 +4,7 @@ import { divIcon } from "leaflet";
 import { useEffect } from "react";
 import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
 import { INCIDENT_TYPES, type TrafficReport } from "../lib/traffic";
 
 type Point = { latitude: number; longitude: number };
@@ -69,7 +70,7 @@ export default function MapCanvas({
                 <span className={`incident-badge incident-${report.type}`}>{type.icon} {type.label}</span>
                 <strong>{report.title}</strong>
                 <p>{report.locationName}</p>
-                <small>{report.confirmations} konfirmime</small>
+                <small>{report.confirmations} konfirmime · {report.clearVotes}/{CLEAR_VOTES_REQUIRED} vota për mbyllje</small>
               </article>
             </Popup>
           </Marker>

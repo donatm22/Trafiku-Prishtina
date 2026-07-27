@@ -182,10 +182,11 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .incident-location span { display:flex; align-items:center; gap:4px; }
 .incident-card-actions { grid-column:2; display:flex; align-items:center; gap:6px; padding-top:10px; border-top:1px solid #eeeae4; }
 .incident-card-actions button { min-height:34px; display:flex; align-items:center; gap:6px; padding:0 9px; border:1px solid var(--line); border-radius:4px; background:var(--paper); color:var(--muted); font-size:.7rem; font-weight:800; }
-.incident-card-actions button:first-child { flex:1; justify-content:flex-start; }
+.incident-card-actions button:not(:last-child) { flex:1; justify-content:flex-start; }
 .incident-card-actions button b { margin-left:auto; color:var(--ink); }
 .incident-card-actions button:hover { border-color:#aaa39a; color:var(--ink); }
 .incident-card-actions button.is-confirmed { border-color:#b9d7c8; background:#edf7f1; color:var(--green); }
+.incident-card-actions button.is-clearing { border-color:#e2cda8; background:#fff9e8; color:#7a4b28; }
 .incident-card-actions button:disabled { cursor:wait; opacity:.65; }
 
 .incident-types-section { padding:64px 0 76px; background:var(--paper); }
