@@ -83,7 +83,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     };
   }, [isReportOpen]);
 
-  function useCurrentLocation(forReport = false) {
+  function locateCurrentPosition(forReport = false) {
     if (!navigator.geolocation) {
       setLocationStatus("Shfletuesi nuk e mbështet vendndodhjen.");
       return;
@@ -295,7 +295,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
             <span className="live-pill"><i /> DIREKT</span>
             <strong>{reports.length} raportime aktive</strong>
           </div>
-          <button className="map-location-button" type="button" onClick={() => useCurrentLocation()}>
+          <button className="map-location-button" type="button" onClick={() => locateCurrentPosition()}>
             <LocateFixed size={18} aria-hidden="true" />
             <span>Vendndodhja ime</span>
           </button>
@@ -324,6 +324,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 <strong>{routePlan.destination}</strong>
                 <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
                 <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
+                <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
                 <span className={routePlan.incidentIds.length > 0 ? "has-incidents" : ""}>
                   <TriangleAlert size={15} /> {routePlan.incidentIds.length} incidente pranë rrugës
                 </span>
@@ -415,7 +416,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                   <input id="report-location" name="locationName" minLength={2} maxLength={120} placeholder="Rruga ose pika e njohur" required />
                 </div>
                 <div className="location-actions">
-                  <button type="button" onClick={() => useCurrentLocation(true)}><Navigation size={15} />Përdor vendndodhjen time</button>
+                  <button type="button" onClick={() => locateCurrentPosition(true)}><Navigation size={15} />Përdor vendndodhjen time</button>
                   <span>ose zgjidhe pikën në hartën më poshtë</span>
                 </div>
               </div>

@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { listTrafficReports } from "../../../db/traffic-store";
-import { findIncidentsAlongRoute, isPointInPrishtina, type RoutePlan, type RoutePoint } from "../../../lib/routing";
+import {
+  findIncidentsAlongRoute,
+  isPointInPrishtina,
+  selectQuickestRoute,
+  type RouteCandidate,
+  type RoutePlan,
+  type RoutePoint,
+} from "../../../lib/routing";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +75,7 @@ export async function GET(request: Request) {
     routeUrl.searchParams.set("overview", "full");
     routeUrl.searchParams.set("geometries", "geojson");
     routeUrl.searchParams.set("steps", "false");
+    routeUrl.searchParams.set("alternatives", "3");
 
     const routeResponse = await fetch(routeUrl, {
       headers: { accept: "application/json" },
@@ -75,11 +83,11 @@ export async function GET(request: Request) {
     });
     if (!routeResponse.ok) throw new Error("Route service unavailable");
     const routeData = await routeResponse.json() as OsrmResponse;
-    const fastest = routeData.routes?.[0];
-    const geometry = fastest?.geometry?.coordinates
-      ?.map(([longitude, latitude]) => ({ latitude: Number(latitude), longitude: Number(longitude) }))
-      .filter(isPointInPrishtina);
-    if (routeData.code !== "Ok" || !fastest || !geometry || geometry.length < 2) {
+    const candidates = (routeData.routes ?? [])
+      .map(toRouteCandidate)
+      .filter((candidate): candidate is RouteCandidate => candidate !== null);
+    const fastest = selectQuickestRoute(candidates);
+    if (routeData.code !== "Ok" || !fastest) {
       return NextResponse.json({ error: "Nuk u gjet një rrugë e kalueshme për këtë destinacion." }, { status: 404 });
     }
 
@@ -90,15 +98,28 @@ export async function GET(request: Request) {
       destination,
       start,
       end,
-      geometry,
-      durationSeconds: Math.max(0, Number(fastest.duration ?? 0)),
-      distanceMeters: Math.max(0, Number(fastest.distance ?? 0)),
-      incidentIds: findIncidentsAlongRoute(reports, geometry),
+      geometry: fastest.geometry,
+      durationSeconds: fastest.durationSeconds,
+      distanceMeters: fastest.distanceMeters,
+      incidentIds: findIncidentsAlongRoute(reports, fastest.geometry),
+      algorithm: fastest.algorithm,
+      evaluatedAlternatives: fastest.evaluatedAlternatives,
     };
     return NextResponse.json({ route: plan });
   } catch {
     return NextResponse.json({ error: "Planifikimi i rrugës nuk është i disponueshëm për momentin." }, { status: 503 });
   }
+}
+
+function toRouteCandidate(route: NonNullable<OsrmResponse["routes"]>[number]): RouteCandidate | null {
+  const geometry = route.geometry?.coordinates
+    ?.map(([longitude, latitude]) => ({ latitude: Number(latitude), longitude: Number(longitude) }));
+  const durationSeconds = Number(route.duration);
+  const distanceMeters = Number(route.distance);
+  if (!geometry || geometry.length < 2 || !geometry.every(isPointInPrishtina)) return null;
+  if (!Number.isFinite(durationSeconds) || durationSeconds < 0) return null;
+  if (!Number.isFinite(distanceMeters) || distanceMeters < 0) return null;
+  return { geometry, durationSeconds, distanceMeters };
 }
 
 function destinationLabel(properties: Record<string, unknown>, fallback: string): string {

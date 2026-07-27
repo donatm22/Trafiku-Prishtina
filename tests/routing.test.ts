@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findIncidentsAlongRoute, isPointInPrishtina } from "../lib/routing.ts";
+import { findIncidentsAlongRoute, isPointInPrishtina, selectQuickestRoute } from "../lib/routing.ts";
 import type { TrafficReport } from "../lib/traffic.ts";
 
 const route = [
@@ -33,4 +33,29 @@ test("validates route points within the Prishtina service area", () => {
 test("highlights only incidents close to the planned route", () => {
   const farReport = { ...report, id: "far-away", latitude: 42.69 };
   assert.deepEqual(findIncidentsAlongRoute([report, farReport], route), ["route-incident"]);
+});
+
+test("selects the quickest route candidate with Dijkstra", () => {
+  const quickest = selectQuickestRoute([
+    {
+      geometry: route,
+      durationSeconds: 420,
+      distanceMeters: 1600,
+    },
+    {
+      geometry: [
+        route[0]!,
+        { latitude: 42.6605, longitude: 21.1580 },
+        route[2]!,
+      ],
+      durationSeconds: 240,
+      distanceMeters: 1900,
+    },
+  ]);
+
+  assert.ok(quickest);
+  assert.equal(Math.round(quickest.durationSeconds), 240);
+  assert.equal(quickest.algorithm, "dijkstra");
+  assert.equal(quickest.evaluatedAlternatives, 2);
+  assert.deepEqual(quickest.geometry[1], { latitude: 42.6605, longitude: 21.1580 });
 });
