@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { createTrafficReport, listTrafficReports } from "../../../db/traffic-store";
+import { createTrafficReport, findDuplicateTrafficReports, listTrafficReports } from "../../../db/traffic-store";
+import type { DuplicateTrafficReport } from "../../../lib/duplicate-detection";
 import { getPrishtinaUser } from "../../../lib/prishtina-auth";
 import { isTrustedMutation } from "../../../lib/request-security";
 import { validateTrafficReport } from "../../../lib/traffic-validation";
@@ -32,6 +33,15 @@ export async function POST(request: Request) {
   }
 
   try {
+    const duplicateOverride = (body as Record<string, unknown>).duplicateOverride === true;
+    const duplicates: DuplicateTrafficReport[] = await findDuplicateTrafficReports(validated.report);
+    if (duplicates.length > 0 && !duplicateOverride) {
+      return NextResponse.json({
+        error: "Ka një raportim të ngjashëm afër kësaj pike.",
+        duplicates,
+      }, { status: 409 });
+    }
+
     const user = await getPrishtinaUser(request.headers.get("cookie"));
     const report = await createTrafficReport(validated.report, user?.email ?? null);
     return NextResponse.json({ report }, { status: 201 });

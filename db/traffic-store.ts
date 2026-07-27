@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { findDuplicateCandidates, type DuplicateTrafficReport } from "../lib/duplicate-detection";
 import { CLEAR_VOTES_REQUIRED, type IncidentLifecycleUpdate } from "../lib/incident-lifecycle";
 import { SEED_REPORTS, type IncidentType, type TrafficReport } from "../lib/traffic";
 
@@ -151,6 +152,12 @@ export async function createTrafficReport(input: NewTrafficReport, reporterEmail
     )
     .run();
   return report;
+}
+
+export async function findDuplicateTrafficReports(
+  input: Pick<TrafficReport, "type" | "latitude" | "longitude">,
+): Promise<DuplicateTrafficReport[]> {
+  return findDuplicateCandidates(await listTrafficReports(), input);
 }
 
 export async function confirmTrafficReport(id: string): Promise<IncidentLifecycleUpdate | null> {
