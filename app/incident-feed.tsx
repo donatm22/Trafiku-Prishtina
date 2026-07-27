@@ -33,9 +33,12 @@ export function IncidentFeed({
   async function confirm(id: string) {
     if (confirmed.has(id) || pendingConfirm === id) return;
     setPendingConfirm(id);
-    const saved = await onConfirm(id);
-    if (saved) setConfirmed((current) => new Set(current).add(id));
-    setPendingConfirm(null);
+    try {
+      const saved = await onConfirm(id);
+      if (saved) setConfirmed((current) => new Set(current).add(id));
+    } finally {
+      setPendingConfirm(null);
+    }
   }
 
   async function share(report: TrafficReport) {
@@ -73,6 +76,12 @@ export function IncidentFeed({
           ))}
         </div>
         <div className="report-list">
+          {visibleReports.length === 0 && (
+            <div className="reports-empty" role="status">
+              <strong>Nuk ka raportime aktive në këtë kategori.</strong>
+              <span>Bëhu i pari që raporton çfarë po ndodh në rrugë.</span>
+            </div>
+          )}
           {visibleReports.map((report) => {
             const type = INCIDENT_TYPES[report.type];
             return (

@@ -158,6 +158,9 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .report-filters button.is-active { border-color:var(--ink); background:var(--ink); color:#fff; }
 .report-filters button.is-active b { background:rgba(255,255,255,.14); color:#fff; }
 .report-list { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.reports-empty { grid-column:1/-1; display:grid; justify-items:center; gap:4px; padding:38px 20px; border:1px dashed #cfc9bf; border-radius:7px; background:var(--paper); color:var(--muted); text-align:center; }
+.reports-empty strong { color:var(--ink); font-size:.9rem; }
+.reports-empty span { font-size:.76rem; }
 .incident-card { display:grid; grid-template-columns:48px minmax(0,1fr); gap:13px; position:relative; min-width:0; padding:17px; border:1px solid var(--line); border-radius:7px; background:#fff; transition:.16s ease; }
 .incident-card:hover { border-color:#b7b0a6; box-shadow:var(--shadow); transform:translateY(-1px); }
 .incident-card-icon { width:46px; height:46px; display:grid; place-items:center; border:0; border-radius:6px; color:#fff; font-size:1.35rem; font-weight:950; }

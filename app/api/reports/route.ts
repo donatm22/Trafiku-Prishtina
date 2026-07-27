@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { createTrafficReport, listTrafficReports } from "../../../db/traffic-store";
-import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../../../lib/traffic";
 import { getPrishtinaUser } from "../../../lib/prishtina-auth";
 import { isTrustedMutation } from "../../../lib/request-security";
+import { validateTrafficReport } from "../../../lib/traffic-validation";
 
 export const dynamic = "force-dynamic";
 
@@ -19,47 +19,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Kërkesa nuk u lejua." }, { status: 403 });
   }
 
-  let body: Partial<TrafficReport>;
+  let body: unknown;
   try {
-    body = await request.json() as Partial<TrafficReport>;
+    body = await request.json();
   } catch {
     return NextResponse.json({ error: "Të dhënat nuk janë valide." }, { status: 400 });
   }
 
-  const type = body.type as IncidentType;
-  const latitude = Number(body.latitude);
-  const longitude = Number(body.longitude);
-  const severity = body.severity;
-  const title = String(body.title ?? "").trim().slice(0, 100);
-  const description = String(body.description ?? "").trim().slice(0, 400);
-  const locationName = String(body.locationName ?? "").trim().slice(0, 120);
-
-  if (
-    !(type in INCIDENT_TYPES) ||
-    !["low", "medium", "high"].includes(String(severity)) ||
-    title.length < 4 ||
-    locationName.length < 2 ||
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
-    latitude < 42.55 ||
-    latitude > 42.75 ||
-    longitude < 21.03 ||
-    longitude > 21.30
-  ) {
+  const validated = validateTrafficReport(body);
+  if (!validated.ok) {
     return NextResponse.json({ error: "Kontrollo llojin, vendndodhjen dhe përshkrimin e raportimit." }, { status: 422 });
   }
 
   try {
     const user = await getPrishtinaUser(request.headers.get("cookie"));
-    const report = await createTrafficReport({
-      type,
-      title,
-      description,
-      locationName,
-      latitude,
-      longitude,
-      severity: severity as TrafficReport["severity"],
-    }, user?.email ?? null);
+    const report = await createTrafficReport(validated.report, user?.email ?? null);
     return NextResponse.json({ report }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Raportimi nuk u ruajt. Provo përsëri." }, { status: 503 });
