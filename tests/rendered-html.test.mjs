@@ -16,6 +16,8 @@ test("defines the complete Trafiku Prishtina experience", async () => {
   assert.match(product, /Raportimet e fundit/);
   assert.match(product, /Nuk është më/);
   assert.match(product, /\/clear/);
+  assert.match(product, /Gjetëm raportime të ngjashme afër/);
+  assert.match(product, /Konfirmo këtë/);
   assert.match(product, /Kolonë/);
   assert.match(product, /Aksident/);
   assert.match(product, /Rrugë të mbyllura/);

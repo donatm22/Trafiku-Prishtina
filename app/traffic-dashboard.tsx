@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
+import type { DuplicateTrafficReport } from "../lib/duplicate-detection";
 import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
@@ -13,6 +14,13 @@ const MapCanvas = dynamic(() => import("./map-canvas"), {
 });
 
 type Point = { latitude: number; longitude: number };
+type ReportPayload = Point & {
+  type: IncidentType;
+  title: string;
+  description: string;
+  locationName: string;
+  severity: string;
+};
 
 const EMPTY_POINT = { latitude: 42.6585, longitude: 21.1615 };
 
@@ -25,7 +33,10 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [locationStatus, setLocationStatus] = useState("");
   const [notice, setNotice] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateTrafficReport[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<ReportPayload | null>(null);
   const reportSheetRef = useRef<HTMLElement>(null);
+  const reportFormRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     const openFromHash = () => {
@@ -92,6 +103,8 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   function openReport() {
     setReportOpen(true);
     setNotice("");
+    setDuplicateCandidates([]);
+    setPendingPayload(null);
     window.history.replaceState(null, "", "#raporto");
   }
 
@@ -111,7 +124,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const type = String(form.get("type")) as IncidentType;
-    const payload = {
+    const payload: ReportPayload = {
       type,
       title: String(form.get("title")),
       description: String(form.get("description")),
@@ -119,16 +132,30 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       severity: String(form.get("severity")),
       ...draftPoint,
     };
+    setPendingPayload(payload);
+    await publishReport(payload, formElement, false);
+  }
 
+  async function publishReport(payload: ReportPayload, formElement: HTMLFormElement, duplicateOverride: boolean) {
     setNotice("Duke e publikuar raportimin…");
+    setDuplicateCandidates([]);
     setSubmitting(true);
     try {
       const response = await fetch("/api/reports", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, duplicateOverride }),
       });
-      const data = await response.json() as { report?: TrafficReport; error?: string };
+      const data = await response.json() as {
+        report?: TrafficReport;
+        duplicates?: DuplicateTrafficReport[];
+        error?: string;
+      };
+      if (response.status === 409 && data.duplicates?.length) {
+        setDuplicateCandidates(data.duplicates);
+        setNotice("");
+        return;
+      }
       if (!response.ok || !data.report) throw new Error(data.error ?? "Raportimi nuk u ruajt.");
       setReports((current) => [data.report!, ...current]);
       setFocusPoint({ latitude: data.report.latitude, longitude: data.report.longitude });
@@ -137,6 +164,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       formElement.reset();
       setDraftPoint(EMPTY_POINT);
       setHasPickedPoint(false);
+      setPendingPayload(null);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Raportimi nuk u ruajt.");
     } finally {
@@ -161,6 +189,25 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     } catch {
       setNotice("Konfirmimi nuk u ruajt. Kontrollo lidhjen dhe provo përsëri.");
       return false;
+    }
+  }
+
+  async function confirmDuplicate(report: DuplicateTrafficReport) {
+    if (isSubmitting) return;
+    setSubmitting(true);
+    try {
+      const saved = await confirmReport(report.id);
+      if (!saved) return;
+      setFocusPoint({ latitude: report.latitude, longitude: report.longitude });
+      setDuplicateCandidates([]);
+      setPendingPayload(null);
+      setDraftPoint(EMPTY_POINT);
+      setHasPickedPoint(false);
+      reportFormRef.current?.reset();
+      closeReport();
+      setNotice("Konfirmove raportimin ekzistues. Faleminderit që shmange një dublikatë.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -250,7 +297,17 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 <X size={21} />
               </button>
             </div>
-            <form className="report-form" onSubmit={submitReport}>
+            <form
+              className="report-form"
+              onSubmit={submitReport}
+              onChange={() => {
+                if (duplicateCandidates.length > 0) {
+                  setDuplicateCandidates([]);
+                  setPendingPayload(null);
+                }
+              }}
+              ref={reportFormRef}
+            >
               <fieldset>
                 <legend>Lloji i ngjarjes</legend>
                 <div className="incident-picker">
@@ -293,6 +350,38 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                   {hasPickedPoint ? "Pika u zgjodh" : "Prek hartën për ta vendosur pikën"}
                 </span>
               </div>
+              {duplicateCandidates.length > 0 && (
+                <aside className="duplicate-panel" aria-labelledby="duplicate-title">
+                  <div>
+                    <strong id="duplicate-title">Gjetëm raportime të ngjashme afër</strong>
+                    <span>Konfirmo njërin prej tyre për ta mbajtur hartën të pastër.</span>
+                  </div>
+                  <div className="duplicate-list">
+                    {duplicateCandidates.map((candidate) => (
+                      <article key={candidate.id}>
+                        <span className={`incident-badge incident-${candidate.type}`}>{INCIDENT_TYPES[candidate.type].label}</span>
+                        <strong>{candidate.title}</strong>
+                        <small>{candidate.locationName} · {candidate.distanceMeters} m larg · {candidate.confirmations} konfirmime</small>
+                        <button type="button" disabled={isSubmitting} onClick={() => void confirmDuplicate(candidate)}>
+                          <Check size={15} /> Konfirmo këtë
+                        </button>
+                      </article>
+                    ))}
+                  </div>
+                  <button
+                    className="duplicate-continue"
+                    type="button"
+                    disabled={isSubmitting || !pendingPayload}
+                    onClick={() => {
+                      if (pendingPayload && reportFormRef.current) {
+                        void publishReport(pendingPayload, reportFormRef.current, true);
+                      }
+                    }}
+                  >
+                    Është ngjarje tjetër — publiko gjithsesi
+                  </button>
+                </aside>
+              )}
               <fieldset>
                 <legend>Ndikimi në trafik</legend>
                 <div className="severity-picker">
