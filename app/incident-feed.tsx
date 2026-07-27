@@ -19,20 +19,23 @@ export function IncidentFeed({
   onSelect,
 }: {
   reports: TrafficReport[];
-  onConfirm: (id: string) => Promise<void>;
+  onConfirm: (id: string) => Promise<boolean>;
   onSelect: (report: TrafficReport) => void;
 }) {
   const [filter, setFilter] = useState<Filter>("all");
   const [confirmed, setConfirmed] = useState<Set<string>>(new Set());
+  const [pendingConfirm, setPendingConfirm] = useState<string | null>(null);
   const visibleReports = useMemo(
     () => filter === "all" ? reports : reports.filter((report) => report.type === filter),
     [filter, reports],
   );
 
   async function confirm(id: string) {
-    if (confirmed.has(id)) return;
-    await onConfirm(id);
-    setConfirmed((current) => new Set(current).add(id));
+    if (confirmed.has(id) || pendingConfirm === id) return;
+    setPendingConfirm(id);
+    const saved = await onConfirm(id);
+    if (saved) setConfirmed((current) => new Set(current).add(id));
+    setPendingConfirm(null);
   }
 
   async function share(report: TrafficReport) {
@@ -95,9 +98,16 @@ export function IncidentFeed({
                   </div>
                 </div>
                 <div className="incident-card-actions">
-                  <button className={confirmed.has(report.id) ? "is-confirmed" : ""} aria-pressed={confirmed.has(report.id)} type="button" onClick={() => confirm(report.id)}>
+                  <button
+                    className={confirmed.has(report.id) ? "is-confirmed" : ""}
+                    aria-pressed={confirmed.has(report.id)}
+                    aria-busy={pendingConfirm === report.id}
+                    disabled={pendingConfirm === report.id}
+                    type="button"
+                    onClick={() => confirm(report.id)}
+                  >
                     <CheckCircle2 size={16} />
-                    <span>{confirmed.has(report.id) ? "Konfirmuar" : "Ende këtu"}</span>
+                    <span>{pendingConfirm === report.id ? "Duke ruajtur…" : confirmed.has(report.id) ? "Konfirmuar" : "Ende këtu"}</span>
                     <b>{report.confirmations}</b>
                   </button>
                   <button type="button" onClick={() => share(report)} aria-label={`Shpërndaje raportimin ${report.title}`}>

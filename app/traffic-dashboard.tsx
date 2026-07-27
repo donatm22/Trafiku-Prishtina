@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
-import type { PrishtinaUser } from "../lib/prishtina-auth";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
 
@@ -20,10 +19,11 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [reports, setReports] = useState(initialReports);
   const [isReportOpen, setReportOpen] = useState(false);
   const [draftPoint, setDraftPoint] = useState<Point>(EMPTY_POINT);
+  const [hasPickedPoint, setHasPickedPoint] = useState(false);
   const [focusPoint, setFocusPoint] = useState<Point | null>(null);
   const [locationStatus, setLocationStatus] = useState("");
   const [notice, setNotice] = useState("");
-  const [user, setUser] = useState<PrishtinaUser | null | undefined>(undefined);
+  const [isSubmitting, setSubmitting] = useState(false);
   const reportSheetRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -33,10 +33,6 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     openFromHash();
     window.addEventListener("hashchange", openFromHash);
     return () => window.removeEventListener("hashchange", openFromHash);
-  }, [user]);
-
-  useEffect(() => {
-    void loadSession();
   }, []);
 
   useEffect(() => {
@@ -81,7 +77,10 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       ({ coords }) => {
         const point = { latitude: coords.latitude, longitude: coords.longitude };
         setFocusPoint(point);
-        if (forReport) setDraftPoint(point);
+        if (forReport) {
+          setDraftPoint(point);
+          setHasPickedPoint(true);
+        }
         setLocationStatus(forReport ? "Vendndodhja u vendos në raportim." : "Harta u përqendrua te ti.");
       },
       () => setLocationStatus("Vendndodhja nuk u lejua. Zgjidhe pikën në hartë."),
@@ -89,28 +88,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     );
   }
 
-  async function loadSession(): Promise<PrishtinaUser | null> {
-    try {
-      const response = await fetch("/api/auth/session", { cache: "no-store" });
-      const data = await response.json() as { user?: PrishtinaUser | null };
-      const currentUser = data.user ?? null;
-      setUser(currentUser);
-      return currentUser;
-    } catch {
-      setUser(null);
-      return null;
-    }
-  }
-
-  async function requireUser(returnTo: string): Promise<boolean> {
-    const currentUser = user === undefined ? await loadSession() : user;
-    if (currentUser) return true;
-    window.location.assign(`/login?returnTo=${encodeURIComponent(returnTo)}`);
-    return false;
-  }
-
-  async function openReport() {
-    if (!await requireUser("/#raporto")) return;
+  function openReport() {
     setReportOpen(true);
     setNotice("");
     window.history.replaceState(null, "", "#raporto");
@@ -123,6 +101,12 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
 
   async function submitReport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSubmitting) return;
+    if (!hasPickedPoint) {
+      setNotice("Zgjidhe pikën e ngjarjes në hartë ose përdor vendndodhjen tënde.");
+      return;
+    }
+
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const type = String(form.get("type")) as IncidentType;
@@ -136,6 +120,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
     };
 
     setNotice("Duke e publikuar raportimin…");
+    setSubmitting(true);
     try {
       const response = await fetch("/api/reports", {
         method: "POST",
@@ -143,32 +128,37 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
         body: JSON.stringify(payload),
       });
       const data = await response.json() as { report?: TrafficReport; error?: string };
-      if (response.status === 401) {
-        window.location.assign(`/login?returnTo=${encodeURIComponent("/#raporto")}`);
-        return;
-      }
       if (!response.ok || !data.report) throw new Error(data.error ?? "Raportimi nuk u ruajt.");
       setReports((current) => [data.report!, ...current]);
       setFocusPoint({ latitude: data.report.latitude, longitude: data.report.longitude });
       closeReport();
       setNotice("Raportimi u publikua. Faleminderit që po e ndihmon qytetin.");
       formElement.reset();
+      setDraftPoint(EMPTY_POINT);
+      setHasPickedPoint(false);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Raportimi nuk u ruajt.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  async function confirmReport(id: string) {
-    if (!await requireUser("/#raportimet")) return;
-    const response = await fetch(`/api/reports/${encodeURIComponent(id)}/confirm`, { method: "POST" });
-    const data = await response.json() as { confirmations?: number; error?: string };
-    if (!response.ok || typeof data.confirmations !== "number") {
-      setNotice(data.error ?? "Konfirmimi nuk u ruajt.");
-      return;
+  async function confirmReport(id: string): Promise<boolean> {
+    try {
+      const response = await fetch(`/api/reports/${encodeURIComponent(id)}/confirm`, { method: "POST" });
+      const data = await response.json() as { confirmations?: number; error?: string };
+      if (!response.ok || typeof data.confirmations !== "number") {
+        setNotice(data.error ?? "Konfirmimi nuk u ruajt.");
+        return false;
+      }
+      setReports((current) => current.map((report) => (
+        report.id === id ? { ...report, confirmations: data.confirmations! } : report
+      )));
+      return true;
+    } catch {
+      setNotice("Konfirmimi nuk u ruajt. Kontrollo lidhjen dhe provo përsëri.");
+      return false;
     }
-    setReports((current) => current.map((report) => (
-      report.id === id ? { ...report, confirmations: data.confirmations! } : report
-    )));
   }
 
   return (
@@ -187,15 +177,16 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
         <div className="map-frame">
           <MapCanvas
             reports={reports}
-            draftPoint={isReportOpen ? draftPoint : null}
+            draftPoint={isReportOpen && hasPickedPoint ? draftPoint : null}
             focusPoint={focusPoint}
             onPositionPick={(point) => {
               if (!isReportOpen) return;
               setDraftPoint(point);
+              setHasPickedPoint(true);
               setLocationStatus("Pika e raportimit u zgjodh në hartë.");
             }}
           />
-          <button className="map-report-button button button-primary" type="button" onClick={() => void openReport()}>
+          <button className="map-report-button button button-primary" type="button" onClick={openReport}>
             + Raporto ngjarje
           </button>
           <div className="map-legend" aria-label="Legjenda e hartës">
@@ -255,8 +246,24 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 </div>
                 <div className="location-actions">
                   <button type="button" onClick={() => useCurrentLocation(true)}><Navigation size={15} />Përdor vendndodhjen time</button>
-                  <span>ose prek hartën për ta vendosur pikën</span>
+                  <span>ose zgjidhe pikën në hartën më poshtë</span>
                 </div>
+              </div>
+              <div className="report-location-map" aria-label="Zgjidhe pikën e ngjarjes në hartë">
+                <MapCanvas
+                  reports={[]}
+                  draftPoint={hasPickedPoint ? draftPoint : null}
+                  focusPoint={hasPickedPoint ? draftPoint : null}
+                  onPositionPick={(point) => {
+                    setDraftPoint(point);
+                    setHasPickedPoint(true);
+                    setLocationStatus("Pika e raportimit u zgjodh në hartë.");
+                    setNotice("");
+                  }}
+                />
+                <span className={hasPickedPoint ? "map-pick-status is-picked" : "map-pick-status"}>
+                  {hasPickedPoint ? "Pika u zgjodh" : "Prek hartën për ta vendosur pikën"}
+                </span>
               </div>
               <fieldset>
                 <legend>Ndikimi në trafik</legend>
@@ -271,8 +278,11 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 <textarea id="report-description" name="description" maxLength={400} placeholder="Kahja, korsia ose çfarë duhet ditur…" />
               </div>
               <p className="report-safety-note">Mos raporto gjatë vozitjes. Ndal në një vend të sigurt para se ta përdorësh platformën.</p>
+              <p className="report-account-note">Raportimi mund të publikohet pa llogari. Nëse je i kyçur në Prishtina.online, ai lidhet automatikisht me llogarinë tënde.</p>
               {notice && <p className="form-notice" role="status">{notice}</p>}
-              <button className="button button-primary button-block" type="submit">Publiko raportimin</button>
+              <button className="button button-primary button-block" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+                {isSubmitting ? "Duke publikuar…" : "Publiko raportimin"}
+              </button>
             </form>
           </section>
         </div>
