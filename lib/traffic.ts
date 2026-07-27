@@ -17,6 +17,8 @@ export type TrafficReport = {
   longitude: number;
   severity: "low" | "medium" | "high";
   confirmations: number;
+  clearVotes: number;
+  lastConfirmedAt: string;
   createdAt: string;
   expiresAt: string;
 };
@@ -32,6 +34,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.15751,
     severity: "high",
     confirmations: 18,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T15:48:00.000Z",
     createdAt: "2026-07-26T15:48:00.000Z",
     expiresAt: "2026-07-26T17:48:00.000Z",
   },
@@ -45,6 +49,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.16077,
     severity: "medium",
     confirmations: 9,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T16:04:00.000Z",
     createdAt: "2026-07-26T16:04:00.000Z",
     expiresAt: "2026-07-26T18:04:00.000Z",
   },
@@ -58,6 +64,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.15618,
     severity: "medium",
     confirmations: 14,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T14:32:00.000Z",
     createdAt: "2026-07-26T14:32:00.000Z",
     expiresAt: "2026-07-26T20:32:00.000Z",
   },
@@ -71,6 +79,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.14423,
     severity: "high",
     confirmations: 22,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T13:58:00.000Z",
     createdAt: "2026-07-26T13:58:00.000Z",
     expiresAt: "2026-07-27T01:58:00.000Z",
   },
@@ -84,6 +94,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.16302,
     severity: "medium",
     confirmations: 11,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T16:12:00.000Z",
     createdAt: "2026-07-26T16:12:00.000Z",
     expiresAt: "2026-07-26T18:12:00.000Z",
   },
@@ -97,6 +109,8 @@ export const SEED_REPORTS: TrafficReport[] = [
     longitude: 21.16966,
     severity: "low",
     confirmations: 7,
+    clearVotes: 0,
+    lastConfirmedAt: "2026-07-26T16:20:00.000Z",
     createdAt: "2026-07-26T16:20:00.000Z",
     expiresAt: "2026-07-26T18:20:00.000Z",
   },
