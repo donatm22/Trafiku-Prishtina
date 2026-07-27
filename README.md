@@ -38,3 +38,7 @@ npm test
 - Drizzle për skemën dhe migrimet
 
 Konfigurimi logjik i D1 ruhet në `.openai/hosting.json`; migrimet e bazës së të dhënave ruhen në `drizzle/`.
+
+Planifikimi i rrugës përdor kërkim vetëm pas dorëzimit përmes Photon dhe
+rrugë automobilistike nga OSRM. Të dy shërbimet mund të zëvendësohen përmes
+`PHOTON_ORIGIN` dhe `OSRM_ORIGIN` pa ndryshuar aplikacionin.

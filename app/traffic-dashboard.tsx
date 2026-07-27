@@ -2,9 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Check, LocateFixed, MapPin, Navigation, X } from "lucide-react";
+import { Check, LocateFixed, MapPin, Navigation, Route as RouteIcon, Search, Timer, TriangleAlert, X } from "lucide-react";
 import type { DuplicateTrafficReport } from "../lib/duplicate-detection";
 import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
+import type { RoutePlan } from "../lib/routing";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
 
@@ -35,6 +36,9 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [isSubmitting, setSubmitting] = useState(false);
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateTrafficReport[]>([]);
   const [pendingPayload, setPendingPayload] = useState<ReportPayload | null>(null);
+  const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null);
+  const [routeStatus, setRouteStatus] = useState("");
+  const [isRouting, setRouting] = useState(false);
   const reportSheetRef = useRef<HTMLElement>(null);
   const reportFormRef = useRef<HTMLFormElement>(null);
 
@@ -98,6 +102,54 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       () => setLocationStatus("Vendndodhja nuk u lejua. Zgjidhe pikën në hartë."),
       { enableHighAccuracy: true, timeout: 8000 },
     );
+  }
+
+  async function planRoute(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isRouting) return;
+    const destination = String(new FormData(event.currentTarget).get("destination") ?? "").trim();
+    if (destination.length < 2) {
+      setRouteStatus("Shkruaj një destinacion brenda Prishtinës.");
+      return;
+    }
+    if (!navigator.geolocation) {
+      setRouteStatus("Shfletuesi nuk e mbështet vendndodhjen për nisjen e rrugës.");
+      return;
+    }
+
+    setRouting(true);
+    setRouteStatus("Duke gjetur vendndodhjen dhe rrugën më të shpejtë…");
+    try {
+      const start = await new Promise<Point>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          ({ coords }) => resolve({ latitude: coords.latitude, longitude: coords.longitude }),
+          reject,
+          { enableHighAccuracy: true, timeout: 8000 },
+        );
+      });
+      const params = new URLSearchParams({
+        destination,
+        latitude: String(start.latitude),
+        longitude: String(start.longitude),
+      });
+      const response = await fetch(`/api/route?${params.toString()}`, {
+        headers: { accept: "application/json" },
+      });
+      const data = await response.json() as { route?: RoutePlan; error?: string };
+      if (!response.ok || !data.route) {
+        throw new Error(data.error ?? "Rruga nuk u gjet.");
+      }
+      setRoutePlan(data.route);
+      setFocusPoint(null);
+      setRouteStatus("");
+    } catch (error) {
+      setRoutePlan(null);
+      setRouteStatus(error instanceof Error && error.message
+        ? error.message
+        : "Lejo vendndodhjen për të planifikuar rrugën.");
+    } finally {
+      setRouting(false);
+    }
   }
 
   function openReport() {
@@ -248,11 +300,44 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
             <span>Vendndodhja ime</span>
           </button>
         </div>
+        <form className="route-planner" onSubmit={planRoute}>
+          <label htmlFor="route-destination"><RouteIcon size={18} aria-hidden="true" /> Planifiko rrugën</label>
+          <div className="route-search">
+            <Search size={17} aria-hidden="true" />
+            <input
+              id="route-destination"
+              name="destination"
+              minLength={2}
+              maxLength={120}
+              placeholder="Destinacioni, p.sh. Biblioteka Kombëtare"
+              required
+            />
+            <button className="button button-primary" type="submit" disabled={isRouting}>
+              {isRouting ? "Duke kërkuar…" : "Gjej rrugën"}
+            </button>
+          </div>
+          <small className="route-privacy">Vendndodhja jote përdoret vetëm kur kërkon një rrugë dhe nuk ruhet.</small>
+          {routeStatus && <p className="route-status" role="status">{routeStatus}</p>}
+          {routePlan && (
+            <div className="route-summary" aria-live="polite">
+              <div>
+                <strong>{routePlan.destination}</strong>
+                <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
+                <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
+                <span className={routePlan.incidentIds.length > 0 ? "has-incidents" : ""}>
+                  <TriangleAlert size={15} /> {routePlan.incidentIds.length} incidente pranë rrugës
+                </span>
+              </div>
+              <button type="button" onClick={() => setRoutePlan(null)}>Hiqe rrugën</button>
+            </div>
+          )}
+        </form>
         <div className="map-frame">
           <MapCanvas
             reports={reports}
             draftPoint={isReportOpen && hasPickedPoint ? draftPoint : null}
             focusPoint={focusPoint}
+            routePlan={routePlan}
             onPositionPick={(point) => {
               if (!isReportOpen) return;
               setDraftPoint(point);

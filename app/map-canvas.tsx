@@ -2,9 +2,10 @@
 
 import { divIcon } from "leaflet";
 import { useEffect } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents, ZoomControl } from "react-leaflet";
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap, useMapEvents, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
+import type { RoutePlan } from "../lib/routing";
 import { INCIDENT_TYPES, type TrafficReport } from "../lib/traffic";
 
 type Point = { latitude: number; longitude: number };
@@ -26,17 +27,32 @@ function MapFocus({ point }: { point?: Point | null }) {
   return null;
 }
 
+function RouteFocus({ route }: { route?: RoutePlan | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!route || route.geometry.length < 2) return;
+    map.fitBounds(
+      route.geometry.map((point) => [point.latitude, point.longitude] as [number, number]),
+      { padding: [34, 34] },
+    );
+  }, [map, route]);
+  return null;
+}
+
 export default function MapCanvas({
   reports,
   draftPoint,
   focusPoint,
+  routePlan,
   onPositionPick,
 }: {
   reports: TrafficReport[];
   draftPoint?: Point | null;
   focusPoint?: Point | null;
+  routePlan?: RoutePlan | null;
   onPositionPick?: (point: Point) => void;
 }) {
+  const routeIncidentIds = new Set(routePlan?.incidentIds ?? []);
   return (
     <MapContainer
       center={[42.6585, 21.1615]}
@@ -54,11 +70,40 @@ export default function MapCanvas({
       <ZoomControl position="bottomright" />
       <MapInteraction onPositionPick={onPositionPick} />
       <MapFocus point={focusPoint} />
+      <RouteFocus route={routePlan} />
+      {routePlan && (
+        <>
+          <Polyline
+            positions={routePlan.geometry.map((point) => [point.latitude, point.longitude])}
+            pathOptions={{ color: "#c92f38", weight: 6, opacity: 0.88 }}
+          />
+          <Marker
+            position={[routePlan.start.latitude, routePlan.start.longitude]}
+            icon={divIcon({
+              className: "route-point-shell",
+              html: '<span class="route-point route-point-start">A</span>',
+              iconSize: [30, 30],
+              iconAnchor: [15, 15],
+            })}
+            title="Nisja"
+          />
+          <Marker
+            position={[routePlan.end.latitude, routePlan.end.longitude]}
+            icon={divIcon({
+              className: "route-point-shell",
+              html: '<span class="route-point route-point-end">B</span>',
+              iconSize: [30, 30],
+              iconAnchor: [15, 15],
+            })}
+            title={routePlan.destination}
+          />
+        </>
+      )}
       {reports.map((report) => {
         const type = INCIDENT_TYPES[report.type];
         const marker = divIcon({
           className: "traffic-marker-shell",
-          html: `<span class="traffic-marker traffic-marker-${report.type}" aria-hidden="true"><b>${type.icon}</b></span>`,
+          html: `<span class="traffic-marker traffic-marker-${report.type}${routeIncidentIds.has(report.id) ? " traffic-marker-on-route" : ""}" aria-hidden="true"><b>${type.icon}</b></span>`,
           iconSize: [38, 44],
           iconAnchor: [19, 40],
           popupAnchor: [0, -36],
