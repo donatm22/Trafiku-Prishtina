@@ -78,7 +78,7 @@ export async function listTrafficReports(): Promise<TrafficReport[]> {
   return result.results;
 }
 
-export async function createTrafficReport(input: NewTrafficReport, reporterEmail: string): Promise<TrafficReport> {
+export async function createTrafficReport(input: NewTrafficReport, reporterEmail: string | null = null): Promise<TrafficReport> {
   await ensureTrafficSchema();
   const now = new Date();
   const durationHours: Record<IncidentType, number> = {

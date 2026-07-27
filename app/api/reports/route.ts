@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createTrafficReport, listTrafficReports } from "../../../db/traffic-store";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../../../lib/traffic";
 import { getPrishtinaUser } from "../../../lib/prishtina-auth";
+import { isTrustedMutation } from "../../../lib/request-security";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,10 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const user = await getPrishtinaUser(request.headers.get("cookie"));
-  if (!user) {
-    return NextResponse.json({ error: "Kyçu me llogarinë Prishtina.online për të raportuar." }, { status: 401 });
+  if (!isTrustedMutation(request)) {
+    return NextResponse.json({ error: "Kërkesa nuk u lejua." }, { status: 403 });
   }
+
   let body: Partial<TrafficReport>;
   try {
     body = await request.json() as Partial<TrafficReport>;
@@ -49,6 +50,7 @@ export async function POST(request: Request) {
   }
 
   try {
+    const user = await getPrishtinaUser(request.headers.get("cookie"));
     const report = await createTrafficReport({
       type,
       title,
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
       latitude,
       longitude,
       severity: severity as TrafficReport["severity"],
-    }, user.email);
+    }, user?.email ?? null);
     return NextResponse.json({ report }, { status: 201 });
   } catch {
     return NextResponse.json({ error: "Raportimi nuk u ruajt. Provo përsëri." }, { status: 503 });
