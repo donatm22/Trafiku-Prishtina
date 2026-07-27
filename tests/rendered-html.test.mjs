@@ -38,7 +38,7 @@ test("ships production metadata and persistence declarations", async () => {
 });
 
 test("uses Prishtina.online as an optional shared account authority", async () => {
-  const [authHelper, accountMenu, loginPage, registerPage, logoutRoute, reportsApi, confirmApi, schema] = await Promise.all([
+  const [authHelper, accountMenu, loginPage, registerPage, logoutRoute, reportsApi, confirmApi, clearApi, schema] = await Promise.all([
     readFile(new URL("../lib/prishtina-auth.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/account-menu.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/login/page.tsx", import.meta.url), "utf8"),
@@ -46,6 +46,7 @@ test("uses Prishtina.online as an optional shared account authority", async () =
     readFile(new URL("../app/api/auth/logout/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/reports/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../app/api/reports/[id]/confirm/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/reports/[id]/clear/route.ts", import.meta.url), "utf8"),
     readFile(new URL("../db/schema.ts", import.meta.url), "utf8"),
   ]);
 
@@ -61,6 +62,8 @@ test("uses Prishtina.online as an optional shared account authority", async () =
   assert.match(reportsApi, /getPrishtinaUser/);
   assert.doesNotMatch(reportsApi, /status:\s*401/);
   assert.doesNotMatch(confirmApi, /getPrishtinaUser|status:\s*401/);
+  assert.match(clearApi, /clearTrafficReport/);
+  assert.doesNotMatch(clearApi, /getPrishtinaUser|status:\s*401/);
   assert.match(schema, /reporterEmail: text\("reporter_email"\)/);
   await access(new URL("../drizzle/0001_fine_pyro.sql", import.meta.url));
 });

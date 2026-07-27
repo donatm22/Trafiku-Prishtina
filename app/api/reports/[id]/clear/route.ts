@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { confirmTrafficReport } from "../../../../../db/traffic-store";
+import { clearTrafficReport } from "../../../../../db/traffic-store";
 import { isTrustedMutation } from "../../../../../lib/request-security";
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -13,12 +13,12 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   }
 
   try {
-    const lifecycle = await confirmTrafficReport(id);
+    const lifecycle = await clearTrafficReport(id);
     if (lifecycle === null) {
       return NextResponse.json({ error: "Raportimi nuk është më aktiv." }, { status: 404 });
     }
     return NextResponse.json(lifecycle);
   } catch {
-    return NextResponse.json({ error: "Konfirmimi nuk u ruajt." }, { status: 503 });
+    return NextResponse.json({ error: "Vota për mbyllje nuk u ruajt." }, { status: 503 });
   }
 }

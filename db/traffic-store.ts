@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import { CLEAR_VOTES_REQUIRED, type IncidentLifecycleUpdate } from "../lib/incident-lifecycle";
 import { SEED_REPORTS, type IncidentType, type TrafficReport } from "../lib/traffic";
 
 type NewTrafficReport = Pick<
@@ -152,16 +153,39 @@ export async function createTrafficReport(input: NewTrafficReport, reporterEmail
   return report;
 }
 
-export async function confirmTrafficReport(id: string): Promise<number | null> {
+export async function confirmTrafficReport(id: string): Promise<IncidentLifecycleUpdate | null> {
   await ensureTrafficSchema();
+  const now = new Date().toISOString();
   const result = await getBinding()
-    .prepare("UPDATE traffic_reports SET confirmations = confirmations + 1 WHERE id = ? AND expires_at > ?")
-    .bind(id, new Date().toISOString())
+    .prepare(`UPDATE traffic_reports
+      SET confirmations = confirmations + 1,
+          clear_votes = MAX(clear_votes - 1, 0),
+          last_confirmed_at = ?
+      WHERE id = ? AND cleared_at IS NULL AND expires_at > ?`)
+    .bind(now, id, now)
     .run();
   if (!result.meta.changes) return null;
   const row = await getBinding()
-    .prepare("SELECT confirmations FROM traffic_reports WHERE id = ?")
+    .prepare("SELECT confirmations, clear_votes AS clearVotes FROM traffic_reports WHERE id = ?")
     .bind(id)
-    .first<{ confirmations: number }>();
-  return row?.confirmations ?? null;
+    .first<{ confirmations: number; clearVotes: number }>();
+  return row ? { ...row, cleared: false } : null;
+}
+
+export async function clearTrafficReport(id: string): Promise<IncidentLifecycleUpdate | null> {
+  await ensureTrafficSchema();
+  const now = new Date().toISOString();
+  const result = await getBinding()
+    .prepare(`UPDATE traffic_reports
+      SET clear_votes = clear_votes + 1,
+          cleared_at = CASE WHEN clear_votes + 1 >= ? THEN ? ELSE NULL END
+      WHERE id = ? AND cleared_at IS NULL AND expires_at > ?`)
+    .bind(CLEAR_VOTES_REQUIRED, now, id, now)
+    .run();
+  if (!result.meta.changes) return null;
+  const row = await getBinding()
+    .prepare("SELECT confirmations, clear_votes AS clearVotes, cleared_at AS clearedAt FROM traffic_reports WHERE id = ?")
+    .bind(id)
+    .first<{ confirmations: number; clearVotes: number; clearedAt: string | null }>();
+  return row ? { confirmations: row.confirmations, clearVotes: row.clearVotes, cleared: Boolean(row.clearedAt) } : null;
 }
