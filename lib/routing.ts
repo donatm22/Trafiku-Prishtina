@@ -65,6 +65,8 @@ export function selectQuickestRoute(
 ): QuickestRoute | null {
   const alternatives = evaluateRouteAlternatives(candidates, reports);
   if (alternatives.length === 0) return null;
+  const viableAlternatives = alternatives.filter((alternative) => !alternative.blocked);
+  if (viableAlternatives.length === 0) return null;
 
   const graph = new Map<string, WeightedEdge[]>();
   const points = new Map<string, RoutePoint>();
@@ -72,7 +74,7 @@ export function selectQuickestRoute(
   graph.set("start", []);
   graph.set("destination", []);
 
-  alternatives.forEach((alternative, routeIndex) => {
+  viableAlternatives.forEach((alternative, routeIndex) => {
     const segmentLengths = alternative.geometry.slice(1).map((point, pointIndex) =>
       distanceBetweenMeters(alternative.geometry[pointIndex]!, point),
     );
@@ -111,7 +113,7 @@ export function selectQuickestRoute(
     .map((node) => routeIndexes.get(node))
     .find((routeIndex): routeIndex is number => routeIndex !== undefined);
   if (selectedRouteIndex === undefined) return null;
-  const selectedAlternative = alternatives[selectedRouteIndex]!;
+  const selectedAlternative = viableAlternatives[selectedRouteIndex]!;
 
   return {
     ...selectedAlternative,
@@ -134,6 +136,9 @@ export function evaluateRouteAlternatives(
         (total, report) => total + estimateIncidentDelaySeconds(report),
         0,
       );
+      const closureIds = routeReports
+        .filter(isConfirmedClosure)
+        .map((report) => report.id);
       return {
         ...candidate,
         id: `route-${candidateIndex + 1}`,
@@ -142,8 +147,8 @@ export function evaluateRouteAlternatives(
         durationSeconds: candidate.durationSeconds + incidentDelaySeconds,
         incidentDelaySeconds,
         incidentIds: routeReports.map((report) => report.id),
-        closureIds: [],
-        blocked: false,
+        closureIds,
+        blocked: closureIds.length > 0,
         labels: [],
       };
     });
@@ -175,6 +180,10 @@ export function estimateIncidentDelaySeconds(report: TrafficReport): number {
   return Math.round(baseDelay * severityMultiplier * confirmationMultiplier * clearVoteMultiplier);
 }
 
+export function isConfirmedClosure(report: TrafficReport): boolean {
+  return report.type === "closure" && report.confirmations >= 2;
+}
+
 function reportsAlongRoute(
   reports: TrafficReport[],
   geometry: RoutePoint[],
@@ -194,7 +203,7 @@ function addLabel(
   label: RouteLabel,
   score: (route: RouteAlternative) => number,
 ): void {
-  const best = alternatives.reduce<RouteAlternative | null>((current, route) => (
+  const best = alternatives.filter((route) => !route.blocked).reduce<RouteAlternative | null>((current, route) => (
     !current || score(route) < score(current) ? route : current
   ), null);
   if (best) best.labels.push(label);

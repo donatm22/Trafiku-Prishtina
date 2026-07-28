@@ -4,6 +4,7 @@ import {
   estimateIncidentDelaySeconds,
   evaluateRouteAlternatives,
   findIncidentsAlongRoute,
+  isConfirmedClosure,
   isPointInPrishtina,
   selectQuickestRoute,
 } from "../lib/routing.ts";
@@ -139,4 +140,45 @@ test("adds confirmed incident delay to a route's Dijkstra weight", () => {
     quickest.baseDurationSeconds + quickest.incidentDelaySeconds,
   );
   assert.deepEqual(quickest.incidentIds, ["route-incident"]);
+});
+
+test("removes routes with confirmed closures from the Dijkstra graph", () => {
+  const clearAlternative = [
+    route[0]!,
+    { latitude: 42.6680, longitude: 21.1700 },
+    route[2]!,
+  ];
+  const closure = { ...report, type: "closure" as const, confirmations: 2 };
+  const candidates = [
+    {
+      geometry: route,
+      durationSeconds: 180,
+      distanceMeters: 1200,
+    },
+    {
+      geometry: clearAlternative,
+      durationSeconds: 420,
+      distanceMeters: 2200,
+    },
+  ];
+
+  const alternatives = evaluateRouteAlternatives(candidates, [closure]);
+  const quickest = selectQuickestRoute(candidates, [closure]);
+
+  assert.equal(isConfirmedClosure(closure), true);
+  assert.equal(alternatives[0]!.blocked, true);
+  assert.deepEqual(alternatives[0]!.closureIds, ["route-incident"]);
+  assert.equal(alternatives[0]!.labels.length, 0);
+  assert.ok(quickest);
+  assert.deepEqual(quickest.geometry, clearAlternative);
+});
+
+test("returns no route when every alternative is closed", () => {
+  const closure = { ...report, type: "closure" as const, confirmations: 3 };
+
+  assert.equal(selectQuickestRoute([{
+    geometry: route,
+    durationSeconds: 180,
+    distanceMeters: 1200,
+  }], [closure]), null);
 });
