@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   estimateIncidentDelaySeconds,
+  evaluateRouteAlternatives,
   findIncidentsAlongRoute,
   isPointInPrishtina,
   selectQuickestRoute,
@@ -63,6 +64,31 @@ test("selects the quickest route candidate with Dijkstra", () => {
   assert.equal(quickest.algorithm, "dijkstra");
   assert.equal(quickest.evaluatedAlternatives, 2);
   assert.deepEqual(quickest.geometry[1], { latitude: 42.6605, longitude: 21.1580 });
+});
+
+test("labels comparison routes by speed, traffic and distance", () => {
+  const alternatives = evaluateRouteAlternatives([
+    {
+      geometry: route,
+      durationSeconds: 420,
+      distanceMeters: 1200,
+    },
+    {
+      geometry: [
+        route[0]!,
+        { latitude: 42.6680, longitude: 21.1700 },
+        route[2]!,
+      ],
+      durationSeconds: 300,
+      distanceMeters: 1800,
+    },
+  ], [report]);
+
+  assert.equal(alternatives.length, 2);
+  assert.ok(alternatives[0]!.labels.includes("shortest"));
+  assert.ok(alternatives[1]!.labels.includes("fastest"));
+  assert.ok(alternatives[1]!.labels.includes("least-traffic"));
+  assert.ok(alternatives[0]!.incidentDelaySeconds > 0);
 });
 
 test("chooses a slightly longer clear route over a faster route with an accident", () => {

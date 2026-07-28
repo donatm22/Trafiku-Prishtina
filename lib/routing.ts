@@ -26,10 +26,20 @@ export type RouteCandidate = {
   distanceMeters: number;
 };
 
-export type QuickestRoute = RouteCandidate & {
+export type RouteLabel = "fastest" | "least-traffic" | "shortest";
+
+export type RouteAlternative = RouteCandidate & {
+  id: string;
+  candidateIndex: number;
   baseDurationSeconds: number;
   incidentDelaySeconds: number;
   incidentIds: string[];
+  closureIds: string[];
+  blocked: boolean;
+  labels: RouteLabel[];
+};
+
+export type QuickestRoute = RouteAlternative & {
   algorithm: "dijkstra";
   evaluatedAlternatives: number;
 };
@@ -58,40 +68,29 @@ export function selectQuickestRoute(
   candidates: RouteCandidate[],
   reports: TrafficReport[] = [],
 ): QuickestRoute | null {
-  const validCandidates = candidates.filter(isValidCandidate);
-  if (validCandidates.length === 0) return null;
+  const alternatives = evaluateRouteAlternatives(candidates, reports);
+  if (alternatives.length === 0) return null;
 
   const graph = new Map<string, WeightedEdge[]>();
   const points = new Map<string, RoutePoint>();
   const routeIndexes = new Map<string, number>();
-  const incidentIdsByRoute = new Map<number, string[]>();
-  const incidentDelayByRoute = new Map<number, number>();
   graph.set("start", []);
   graph.set("destination", []);
 
-  validCandidates.forEach((candidate, routeIndex) => {
-    const routeReports = reportsAlongRoute(reports, candidate.geometry);
-    const incidentDelaySeconds = routeReports.reduce(
-      (total, report) => total + estimateIncidentDelaySeconds(report),
-      0,
-    );
-    const adjustedDurationSeconds = candidate.durationSeconds + incidentDelaySeconds;
-    incidentIdsByRoute.set(routeIndex, routeReports.map((report) => report.id));
-    incidentDelayByRoute.set(routeIndex, incidentDelaySeconds);
-
-    const segmentLengths = candidate.geometry.slice(1).map((point, pointIndex) =>
-      distanceBetweenMeters(candidate.geometry[pointIndex]!, point),
+  alternatives.forEach((alternative, routeIndex) => {
+    const segmentLengths = alternative.geometry.slice(1).map((point, pointIndex) =>
+      distanceBetweenMeters(alternative.geometry[pointIndex]!, point),
     );
     const geometryLength = segmentLengths.reduce((sum, length) => sum + length, 0);
     const firstNode = routeNodeId(routeIndex, 0);
     graph.get("start")!.push({ to: firstNode, weight: 0 });
 
-    candidate.geometry.forEach((point, pointIndex) => {
+    alternative.geometry.forEach((point, pointIndex) => {
       const node = routeNodeId(routeIndex, pointIndex);
       points.set(node, point);
       routeIndexes.set(node, routeIndex);
       if (!graph.has(node)) graph.set(node, []);
-      if (pointIndex === candidate.geometry.length - 1) {
+      if (pointIndex === alternative.geometry.length - 1) {
         graph.get(node)!.push({ to: "destination", weight: 0 });
         return;
       }
@@ -99,8 +98,8 @@ export function selectQuickestRoute(
       const nextNode = routeNodeId(routeIndex, pointIndex + 1);
       const segmentLength = segmentLengths[pointIndex]!;
       const weight = geometryLength > 0
-        ? adjustedDurationSeconds * (segmentLength / geometryLength)
-        : adjustedDurationSeconds / (candidate.geometry.length - 1);
+        ? alternative.durationSeconds * (segmentLength / geometryLength)
+        : alternative.durationSeconds / (alternative.geometry.length - 1);
       graph.get(node)!.push({ to: nextNode, weight });
     });
   });
@@ -117,18 +116,51 @@ export function selectQuickestRoute(
     .map((node) => routeIndexes.get(node))
     .find((routeIndex): routeIndex is number => routeIndex !== undefined);
   if (selectedRouteIndex === undefined) return null;
-  const selectedCandidate = validCandidates[selectedRouteIndex]!;
+  const selectedAlternative = alternatives[selectedRouteIndex]!;
 
   return {
+    ...selectedAlternative,
     geometry,
     durationSeconds: result.distance,
-    baseDurationSeconds: selectedCandidate.durationSeconds,
-    distanceMeters: selectedCandidate.distanceMeters,
-    incidentDelaySeconds: incidentDelayByRoute.get(selectedRouteIndex) ?? 0,
-    incidentIds: incidentIdsByRoute.get(selectedRouteIndex) ?? [],
     algorithm: "dijkstra",
-    evaluatedAlternatives: validCandidates.length,
+    evaluatedAlternatives: alternatives.length,
   };
+}
+
+export function evaluateRouteAlternatives(
+  candidates: RouteCandidate[],
+  reports: TrafficReport[] = [],
+): RouteAlternative[] {
+  const alternatives = candidates
+    .filter(isValidCandidate)
+    .map((candidate, candidateIndex): RouteAlternative => {
+      const routeReports = reportsAlongRoute(reports, candidate.geometry);
+      const incidentDelaySeconds = routeReports.reduce(
+        (total, report) => total + estimateIncidentDelaySeconds(report),
+        0,
+      );
+      return {
+        ...candidate,
+        id: `route-${candidateIndex + 1}`,
+        candidateIndex,
+        baseDurationSeconds: candidate.durationSeconds,
+        durationSeconds: candidate.durationSeconds + incidentDelaySeconds,
+        incidentDelaySeconds,
+        incidentIds: routeReports.map((report) => report.id),
+        closureIds: [],
+        blocked: false,
+        labels: [],
+      };
+    });
+
+  addLabel(alternatives, "fastest", (route) => route.durationSeconds);
+  addLabel(
+    alternatives,
+    "least-traffic",
+    (route) => route.incidentDelaySeconds * 100 + route.incidentIds.length,
+  );
+  addLabel(alternatives, "shortest", (route) => route.distanceMeters);
+  return alternatives;
 }
 
 export function estimateIncidentDelaySeconds(report: TrafficReport): number {
@@ -160,6 +192,17 @@ function reportsAlongRoute(
     if (isNearby) seen.add(report.id);
     return isNearby;
   });
+}
+
+function addLabel(
+  alternatives: RouteAlternative[],
+  label: RouteLabel,
+  score: (route: RouteAlternative) => number,
+): void {
+  const best = alternatives.reduce<RouteAlternative | null>((current, route) => (
+    !current || score(route) < score(current) ? route : current
+  ), null);
+  if (best) best.labels.push(label);
 }
 
 function isValidCandidate(candidate: RouteCandidate): boolean {
