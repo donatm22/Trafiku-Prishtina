@@ -44,12 +44,14 @@ export default function MapCanvas({
   draftPoint,
   focusPoint,
   routePlan,
+  routeOptions = [],
   onPositionPick,
 }: {
   reports: TrafficReport[];
   draftPoint?: Point | null;
   focusPoint?: Point | null;
   routePlan?: RoutePlan | null;
+  routeOptions?: RoutePlan[];
   onPositionPick?: (point: Point) => void;
 }) {
   const routeIncidentIds = new Set(routePlan?.incidentIds ?? []);
@@ -71,6 +73,15 @@ export default function MapCanvas({
       <MapInteraction onPositionPick={onPositionPick} />
       <MapFocus point={focusPoint} />
       <RouteFocus route={routePlan} />
+      {routeOptions
+        .filter((route) => route.id !== routePlan?.id && !route.blocked)
+        .map((route) => (
+          <Polyline
+            key={route.id}
+            positions={route.geometry.map((point) => [point.latitude, point.longitude])}
+            pathOptions={{ color: "#817b73", weight: 4, opacity: 0.5, dashArray: "8 8" }}
+          />
+        ))}
       {routePlan && (
         <>
           <Polyline

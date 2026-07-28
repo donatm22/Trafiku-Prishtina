@@ -24,6 +24,11 @@ type ReportPayload = Point & {
 };
 
 const EMPTY_POINT = { latitude: 42.6585, longitude: 21.1615 };
+const ROUTE_LABELS = {
+  fastest: "Më e shpejta",
+  "least-traffic": "Më pak trafik",
+  shortest: "Më e shkurtra",
+} as const;
 
 export function TrafficDashboard({ initialReports }: { initialReports: TrafficReport[] }) {
   const [reports, setReports] = useState(initialReports);
@@ -37,6 +42,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateTrafficReport[]>([]);
   const [pendingPayload, setPendingPayload] = useState<ReportPayload | null>(null);
   const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null);
+  const [routeOptions, setRouteOptions] = useState<RoutePlan[]>([]);
   const [routeStatus, setRouteStatus] = useState("");
   const [isRouting, setRouting] = useState(false);
   const reportSheetRef = useRef<HTMLElement>(null);
@@ -135,15 +141,17 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       const response = await fetch(`/api/route?${params.toString()}`, {
         headers: { accept: "application/json" },
       });
-      const data = await response.json() as { route?: RoutePlan; error?: string };
+      const data = await response.json() as { route?: RoutePlan; routes?: RoutePlan[]; error?: string };
       if (!response.ok || !data.route) {
         throw new Error(data.error ?? "Rruga nuk u gjet.");
       }
       setRoutePlan(data.route);
+      setRouteOptions(data.routes?.length ? data.routes : [data.route]);
       setFocusPoint(null);
       setRouteStatus("");
     } catch (error) {
       setRoutePlan(null);
+      setRouteOptions([]);
       setRouteStatus(error instanceof Error && error.message
         ? error.message
         : "Lejo vendndodhjen për të planifikuar rrugën.");
@@ -319,22 +327,48 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
           <small className="route-privacy">Vendndodhja jote përdoret vetëm kur kërkon një rrugë dhe nuk ruhet.</small>
           {routeStatus && <p className="route-status" role="status">{routeStatus}</p>}
           {routePlan && (
-            <div className="route-summary" aria-live="polite">
-              <div>
-                <strong>{routePlan.destination}</strong>
-                <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
-                <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
-                <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
-                {routePlan.incidentDelaySeconds > 0 && (
-                  <span className="has-incidents">
-                    +{Math.max(1, Math.round(routePlan.incidentDelaySeconds / 60))} min nga trafiku
+            <div className="route-results" aria-live="polite">
+              <div className="route-summary">
+                <div>
+                  <strong>{routePlan.destination}</strong>
+                  <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
+                  <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
+                  <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
+                  {routePlan.incidentDelaySeconds > 0 && (
+                    <span className="has-incidents">
+                      +{Math.max(1, Math.round(routePlan.incidentDelaySeconds / 60))} min nga trafiku
+                    </span>
+                  )}
+                  <span className={routePlan.incidentIds.length > 0 ? "has-incidents" : ""}>
+                    <TriangleAlert size={15} /> {routePlan.incidentIds.length} incidente pranë rrugës
                   </span>
-                )}
-                <span className={routePlan.incidentIds.length > 0 ? "has-incidents" : ""}>
-                  <TriangleAlert size={15} /> {routePlan.incidentIds.length} incidente pranë rrugës
-                </span>
+                </div>
+                <button type="button" onClick={() => {
+                  setRoutePlan(null);
+                  setRouteOptions([]);
+                }}>Hiqe rrugën</button>
               </div>
-              <button type="button" onClick={() => setRoutePlan(null)}>Hiqe rrugën</button>
+              <div className="route-options" aria-label="Krahaso rrugët">
+                {routeOptions.map((option, index) => (
+                  <button
+                    className={option.id === routePlan.id ? "route-option is-active" : "route-option"}
+                    key={option.id}
+                    type="button"
+                    onClick={() => setRoutePlan(option)}
+                    aria-pressed={option.id === routePlan.id}
+                  >
+                    <span className="route-option-heading">
+                      <strong>Rruga {index + 1}</strong>
+                      {option.labels.map((label) => <b key={label}>{ROUTE_LABELS[label]}</b>)}
+                    </span>
+                    <span className="route-option-metrics">
+                      <span>{Math.max(1, Math.round(option.durationSeconds / 60))} min</span>
+                      <span>{(option.distanceMeters / 1000).toFixed(1)} km</span>
+                      <span>{option.incidentIds.length} incidente</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </form>
@@ -344,6 +378,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
             draftPoint={isReportOpen && hasPickedPoint ? draftPoint : null}
             focusPoint={focusPoint}
             routePlan={routePlan}
+            routeOptions={routeOptions}
             onPositionPick={(point) => {
               if (!isReportOpen) return;
               setDraftPoint(point);
