@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { listTrafficReports } from "../../../db/traffic-store";
 import {
+  evaluateRouteAlternatives,
   isPointInPrishtina,
   selectQuickestRoute,
+  type RouteAlternative,
   type RouteCandidate,
   type RoutePlan,
   type RoutePoint,
@@ -86,6 +88,7 @@ export async function GET(request: Request) {
       .map(toRouteCandidate)
       .filter((candidate): candidate is RouteCandidate => candidate !== null);
     const reports = await listTrafficReports();
+    const alternatives = evaluateRouteAlternatives(candidates, reports);
     const fastest = selectQuickestRoute(candidates, reports);
     if (routeData.code !== "Ok" || !fastest) {
       return NextResponse.json({ error: "Nuk u gjet një rrugë e kalueshme për këtë destinacion." }, { status: 404 });
@@ -93,22 +96,31 @@ export async function GET(request: Request) {
 
     const properties = feature?.properties ?? {};
     const destination = destinationLabel(properties, destinationQuery);
-    const plan: RoutePlan = {
-      destination,
-      start,
-      end,
-      geometry: fastest.geometry,
-      durationSeconds: fastest.durationSeconds,
-      distanceMeters: fastest.distanceMeters,
-      incidentIds: fastest.incidentIds,
-      incidentDelaySeconds: fastest.incidentDelaySeconds,
-      algorithm: fastest.algorithm,
-      evaluatedAlternatives: fastest.evaluatedAlternatives,
-    };
-    return NextResponse.json({ route: plan });
+    const plan = toRoutePlan(fastest, destination, start, end, alternatives.length);
+    const routes = alternatives.map((alternative) =>
+      toRoutePlan(alternative, destination, start, end, alternatives.length),
+    );
+    return NextResponse.json({ route: plan, routes });
   } catch {
     return NextResponse.json({ error: "Planifikimi i rrugës nuk është i disponueshëm për momentin." }, { status: 503 });
   }
+}
+
+function toRoutePlan(
+  alternative: RouteAlternative,
+  destination: string,
+  start: RoutePoint,
+  end: RoutePoint,
+  evaluatedAlternatives: number,
+): RoutePlan {
+  return {
+    ...alternative,
+    destination,
+    start,
+    end,
+    algorithm: "dijkstra",
+    evaluatedAlternatives,
+  };
 }
 
 function toRouteCandidate(route: NonNullable<OsrmResponse["routes"]>[number]): RouteCandidate | null {

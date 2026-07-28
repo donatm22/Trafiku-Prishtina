@@ -7,15 +7,10 @@ export type RoutePoint = {
   longitude: number;
 };
 
-export type RoutePlan = {
+export type RoutePlan = RouteAlternative & {
   destination: string;
   start: RoutePoint;
   end: RoutePoint;
-  geometry: RoutePoint[];
-  durationSeconds: number;
-  distanceMeters: number;
-  incidentIds: string[];
-  incidentDelaySeconds: number;
   algorithm: "dijkstra";
   evaluatedAlternatives: number;
 };
