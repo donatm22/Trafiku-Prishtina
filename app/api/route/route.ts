@@ -90,6 +90,15 @@ export async function GET(request: Request) {
     const reports = await listTrafficReports();
     const alternatives = evaluateRouteAlternatives(candidates, reports);
     const fastest = selectQuickestRoute(candidates, reports);
+    if (routeData.code === "Ok" && alternatives.length > 0 && !fastest) {
+      const blockedDestination = destinationLabel(feature?.properties ?? {}, destinationQuery);
+      return NextResponse.json({
+        error: "Të gjitha rrugët e gjetura kalojnë nëpër mbyllje të konfirmuara.",
+        routes: alternatives.map((alternative) =>
+          toRoutePlan(alternative, blockedDestination, start, end, alternatives.length),
+        ),
+      }, { status: 409 });
+    }
     if (routeData.code !== "Ok" || !fastest) {
       return NextResponse.json({ error: "Nuk u gjet një rrugë e kalueshme për këtë destinacion." }, { status: 404 });
     }

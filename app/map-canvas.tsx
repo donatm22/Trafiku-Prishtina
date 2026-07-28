@@ -74,6 +74,15 @@ export default function MapCanvas({
       <MapFocus point={focusPoint} />
       <RouteFocus route={routePlan} />
       {routeOptions
+        .filter((route) => route.blocked)
+        .map((route) => (
+          <Polyline
+            key={route.id}
+            positions={route.geometry.map((point) => [point.latitude, point.longitude])}
+            pathOptions={{ color: "#7a4b28", weight: 4, opacity: 0.4, dashArray: "3 9" }}
+          />
+        ))}
+      {routeOptions
         .filter((route) => route.id !== routePlan?.id && !route.blocked)
         .map((route) => (
           <Polyline

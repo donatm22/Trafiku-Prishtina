@@ -93,9 +93,12 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .route-option { display:grid; gap:7px; min-width:0; padding:10px; border:1px solid var(--line); border-radius:5px; background:var(--paper); color:var(--ink); text-align:left; }
 .route-option:hover { border-color:#aaa39a; }
 .route-option.is-active { border-color:var(--red); background:#fff7f7; box-shadow:0 0 0 2px rgba(201,47,56,.08); }
+.route-option.is-blocked { border-color:#d8c8ba; background:#f4eee8; cursor:not-allowed; opacity:.74; }
+.route-option.is-blocked:hover { border-color:#d8c8ba; }
 .route-option-heading { display:flex; align-items:center; flex-wrap:wrap; gap:5px; }
 .route-option-heading strong { font-size:.76rem; }
 .route-option-heading b { padding:3px 5px; border-radius:3px; background:var(--ink); color:#fff; font-size:.58rem; line-height:1; }
+.route-option-heading b.blocked-label { background:#7a4b28; }
 .route-option-metrics { display:flex; align-items:center; flex-wrap:wrap; gap:5px 9px; color:var(--muted); font-size:.66rem; font-weight:750; }
 .map-frame { position:relative; height:min(68vh,680px); min-height:520px; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:#ebe7e0; box-shadow:var(--shadow); }
 .leaflet-map,.map-loading { width:100%; height:100%; }

@@ -419,23 +419,32 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
               <div className="route-options" aria-label="Krahaso rrugët">
                 {routeOptions.map((option, index) => (
                   <button
-                    className={option.id === routePlan.id ? "route-option is-active" : "route-option"}
+                    className={[
+                      "route-option",
+                      option.id === routePlan.id ? "is-active" : "",
+                      option.blocked ? "is-blocked" : "",
+                    ].filter(Boolean).join(" ")}
                     key={option.id}
                     type="button"
                     onClick={() => {
+                      if (option.blocked) return;
                       routePlanRef.current = option;
                       setRoutePlan(option);
                     }}
                     aria-pressed={option.id === routePlan.id}
+                    disabled={option.blocked}
                   >
                     <span className="route-option-heading">
                       <strong>Rruga {index + 1}</strong>
+                      {option.blocked && <b className="blocked-label">E mbyllur</b>}
                       {option.labels.map((label) => <b key={label}>{ROUTE_LABELS[label]}</b>)}
                     </span>
                     <span className="route-option-metrics">
                       <span>{Math.max(1, Math.round(option.durationSeconds / 60))} min</span>
                       <span>{(option.distanceMeters / 1000).toFixed(1)} km</span>
-                      <span>{option.incidentIds.length} incidente</span>
+                      <span>{option.blocked
+                        ? `${option.closureIds.length} mbyllje`
+                        : `${option.incidentIds.length} incidente`}</span>
                     </span>
                   </button>
                 ))}
