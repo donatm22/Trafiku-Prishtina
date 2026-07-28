@@ -15,6 +15,7 @@ export type RoutePlan = {
   durationSeconds: number;
   distanceMeters: number;
   incidentIds: string[];
+  incidentDelaySeconds: number;
   algorithm: "dijkstra";
   evaluatedAlternatives: number;
 };
@@ -26,6 +27,9 @@ export type RouteCandidate = {
 };
 
 export type QuickestRoute = RouteCandidate & {
+  baseDurationSeconds: number;
+  incidentDelaySeconds: number;
+  incidentIds: string[];
   algorithm: "dijkstra";
   evaluatedAlternatives: number;
 };
@@ -50,16 +54,31 @@ export function findIncidentsAlongRoute(
     .map((report) => report.id);
 }
 
-export function selectQuickestRoute(candidates: RouteCandidate[]): QuickestRoute | null {
+export function selectQuickestRoute(
+  candidates: RouteCandidate[],
+  reports: TrafficReport[] = [],
+): QuickestRoute | null {
   const validCandidates = candidates.filter(isValidCandidate);
   if (validCandidates.length === 0) return null;
 
   const graph = new Map<string, WeightedEdge[]>();
   const points = new Map<string, RoutePoint>();
+  const routeIndexes = new Map<string, number>();
+  const incidentIdsByRoute = new Map<number, string[]>();
+  const incidentDelayByRoute = new Map<number, number>();
   graph.set("start", []);
   graph.set("destination", []);
 
   validCandidates.forEach((candidate, routeIndex) => {
+    const routeReports = reportsAlongRoute(reports, candidate.geometry);
+    const incidentDelaySeconds = routeReports.reduce(
+      (total, report) => total + estimateIncidentDelaySeconds(report),
+      0,
+    );
+    const adjustedDurationSeconds = candidate.durationSeconds + incidentDelaySeconds;
+    incidentIdsByRoute.set(routeIndex, routeReports.map((report) => report.id));
+    incidentDelayByRoute.set(routeIndex, incidentDelaySeconds);
+
     const segmentLengths = candidate.geometry.slice(1).map((point, pointIndex) =>
       distanceBetweenMeters(candidate.geometry[pointIndex]!, point),
     );
@@ -70,6 +89,7 @@ export function selectQuickestRoute(candidates: RouteCandidate[]): QuickestRoute
     candidate.geometry.forEach((point, pointIndex) => {
       const node = routeNodeId(routeIndex, pointIndex);
       points.set(node, point);
+      routeIndexes.set(node, routeIndex);
       if (!graph.has(node)) graph.set(node, []);
       if (pointIndex === candidate.geometry.length - 1) {
         graph.get(node)!.push({ to: "destination", weight: 0 });
@@ -79,8 +99,8 @@ export function selectQuickestRoute(candidates: RouteCandidate[]): QuickestRoute
       const nextNode = routeNodeId(routeIndex, pointIndex + 1);
       const segmentLength = segmentLengths[pointIndex]!;
       const weight = geometryLength > 0
-        ? candidate.durationSeconds * (segmentLength / geometryLength)
-        : candidate.durationSeconds / (candidate.geometry.length - 1);
+        ? adjustedDurationSeconds * (segmentLength / geometryLength)
+        : adjustedDurationSeconds / (candidate.geometry.length - 1);
       graph.get(node)!.push({ to: nextNode, weight });
     });
   });
@@ -93,18 +113,53 @@ export function selectQuickestRoute(candidates: RouteCandidate[]): QuickestRoute
     .filter((point): point is RoutePoint => Boolean(point));
   if (geometry.length < 2) return null;
 
-  const distanceMeters = geometry.slice(1).reduce(
-    (sum, point, index) => sum + distanceBetweenMeters(geometry[index]!, point),
-    0,
-  );
+  const selectedRouteIndex = result.path
+    .map((node) => routeIndexes.get(node))
+    .find((routeIndex): routeIndex is number => routeIndex !== undefined);
+  if (selectedRouteIndex === undefined) return null;
+  const selectedCandidate = validCandidates[selectedRouteIndex]!;
 
   return {
     geometry,
     durationSeconds: result.distance,
-    distanceMeters,
+    baseDurationSeconds: selectedCandidate.durationSeconds,
+    distanceMeters: selectedCandidate.distanceMeters,
+    incidentDelaySeconds: incidentDelayByRoute.get(selectedRouteIndex) ?? 0,
+    incidentIds: incidentIdsByRoute.get(selectedRouteIndex) ?? [],
     algorithm: "dijkstra",
     evaluatedAlternatives: validCandidates.length,
   };
+}
+
+export function estimateIncidentDelaySeconds(report: TrafficReport): number {
+  const baseDelay = {
+    jam: 300,
+    accident: 480,
+    closure: 1800,
+    hazard: 120,
+  }[report.type];
+  const severityMultiplier = {
+    low: 0.65,
+    medium: 1,
+    high: 1.6,
+  }[report.severity];
+  const confirmationMultiplier = 1 + Math.min(Math.max(report.confirmations - 1, 0), 10) * 0.025;
+  const clearVoteMultiplier = Math.max(0.25, 1 - Math.max(report.clearVotes, 0) * 0.25);
+  return Math.round(baseDelay * severityMultiplier * confirmationMultiplier * clearVoteMultiplier);
+}
+
+function reportsAlongRoute(
+  reports: TrafficReport[],
+  geometry: RoutePoint[],
+  proximityMeters = 140,
+): TrafficReport[] {
+  const seen = new Set<string>();
+  return reports.filter((report) => {
+    if (seen.has(report.id)) return false;
+    const isNearby = geometry.some((point) => distanceBetweenMeters(report, point) <= proximityMeters);
+    if (isNearby) seen.add(report.id);
+    return isNearby;
+  });
 }
 
 function isValidCandidate(candidate: RouteCandidate): boolean {

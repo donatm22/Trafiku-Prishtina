@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { listTrafficReports } from "../../../db/traffic-store";
 import {
-  findIncidentsAlongRoute,
   isPointInPrishtina,
   selectQuickestRoute,
   type RouteCandidate,
@@ -86,14 +85,14 @@ export async function GET(request: Request) {
     const candidates = (routeData.routes ?? [])
       .map(toRouteCandidate)
       .filter((candidate): candidate is RouteCandidate => candidate !== null);
-    const fastest = selectQuickestRoute(candidates);
+    const reports = await listTrafficReports();
+    const fastest = selectQuickestRoute(candidates, reports);
     if (routeData.code !== "Ok" || !fastest) {
       return NextResponse.json({ error: "Nuk u gjet një rrugë e kalueshme për këtë destinacion." }, { status: 404 });
     }
 
     const properties = feature?.properties ?? {};
     const destination = destinationLabel(properties, destinationQuery);
-    const reports = await listTrafficReports();
     const plan: RoutePlan = {
       destination,
       start,
@@ -101,7 +100,8 @@ export async function GET(request: Request) {
       geometry: fastest.geometry,
       durationSeconds: fastest.durationSeconds,
       distanceMeters: fastest.distanceMeters,
-      incidentIds: findIncidentsAlongRoute(reports, fastest.geometry),
+      incidentIds: fastest.incidentIds,
+      incidentDelaySeconds: fastest.incidentDelaySeconds,
       algorithm: fastest.algorithm,
       evaluatedAlternatives: fastest.evaluatedAlternatives,
     };

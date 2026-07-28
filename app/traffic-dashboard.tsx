@@ -325,6 +325,11 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
                 <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
                 <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
+                {routePlan.incidentDelaySeconds > 0 && (
+                  <span className="has-incidents">
+                    +{Math.max(1, Math.round(routePlan.incidentDelaySeconds / 60))} min nga trafiku
+                  </span>
+                )}
                 <span className={routePlan.incidentIds.length > 0 ? "has-incidents" : ""}>
                   <TriangleAlert size={15} /> {routePlan.incidentIds.length} incidente pranë rrugës
                 </span>

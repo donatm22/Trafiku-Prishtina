@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { findIncidentsAlongRoute, isPointInPrishtina, selectQuickestRoute } from "../lib/routing.ts";
+import {
+  estimateIncidentDelaySeconds,
+  findIncidentsAlongRoute,
+  isPointInPrishtina,
+  selectQuickestRoute,
+} from "../lib/routing.ts";
 import type { TrafficReport } from "../lib/traffic.ts";
 
 const route = [
@@ -58,4 +63,54 @@ test("selects the quickest route candidate with Dijkstra", () => {
   assert.equal(quickest.algorithm, "dijkstra");
   assert.equal(quickest.evaluatedAlternatives, 2);
   assert.deepEqual(quickest.geometry[1], { latitude: 42.6605, longitude: 21.1580 });
+});
+
+test("chooses a slightly longer clear route over a faster route with an accident", () => {
+  const clearAlternative = [
+    route[0]!,
+    { latitude: 42.6680, longitude: 21.1700 },
+    route[2]!,
+  ];
+  const quickest = selectQuickestRoute([
+    {
+      geometry: route,
+      durationSeconds: 240,
+      distanceMeters: 1500,
+    },
+    {
+      geometry: clearAlternative,
+      durationSeconds: 360,
+      distanceMeters: 2100,
+    },
+  ], [{ ...report, severity: "high", confirmations: 12 }]);
+
+  assert.ok(quickest);
+  assert.equal(Math.round(quickest.durationSeconds), 360);
+  assert.equal(quickest.incidentDelaySeconds, 0);
+  assert.deepEqual(quickest.incidentIds, []);
+  assert.deepEqual(quickest.geometry, clearAlternative);
+});
+
+test("adds confirmed incident delay to a route's Dijkstra weight", () => {
+  const quickest = selectQuickestRoute([
+    {
+      geometry: route,
+      durationSeconds: 240,
+      distanceMeters: 1500,
+    },
+  ], [{ ...report, type: "jam", severity: "medium", confirmations: 5 }]);
+
+  assert.ok(quickest);
+  assert.equal(quickest.baseDurationSeconds, 240);
+  assert.equal(quickest.incidentDelaySeconds, estimateIncidentDelaySeconds({
+    ...report,
+    type: "jam",
+    severity: "medium",
+    confirmations: 5,
+  }));
+  assert.equal(
+    Math.round(quickest.durationSeconds),
+    quickest.baseDurationSeconds + quickest.incidentDelaySeconds,
+  );
+  assert.deepEqual(quickest.incidentIds, ["route-incident"]);
 });
