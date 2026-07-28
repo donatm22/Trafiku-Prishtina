@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listTrafficReports } from "../../../db/traffic-store";
+import { selectDestinationCandidate, type PhotonFeature } from "../../../lib/geocoding";
 import {
   evaluateRouteAlternatives,
   isPointInPrishtina,
@@ -14,11 +15,6 @@ export const dynamic = "force-dynamic";
 
 const photonOrigin = process.env.PHOTON_ORIGIN ?? "https://photon.komoot.io";
 const osrmOrigin = process.env.OSRM_ORIGIN ?? "https://router.project-osrm.org";
-
-type PhotonFeature = {
-  geometry?: { coordinates?: [number, number] };
-  properties?: Record<string, unknown>;
-};
 
 type OsrmResponse = {
   code?: string;
@@ -43,11 +39,13 @@ export async function GET(request: Request) {
 
   try {
     const searchUrl = new URL("/api/", photonOrigin);
-    searchUrl.searchParams.set("q", `${destinationQuery}, Prishtinë, Kosovë`);
-    searchUrl.searchParams.set("limit", "1");
+    searchUrl.searchParams.set("q", destinationQuery);
+    searchUrl.searchParams.set("limit", "10");
     searchUrl.searchParams.set("bbox", "21.03,42.55,21.30,42.75");
     searchUrl.searchParams.set("lat", String(start.latitude));
     searchUrl.searchParams.set("lon", String(start.longitude));
+    searchUrl.searchParams.set("zoom", "12");
+    searchUrl.searchParams.set("location_bias_scale", "0.2");
 
     const placeResponse = await fetch(searchUrl, {
       headers: {
@@ -59,7 +57,12 @@ export async function GET(request: Request) {
     });
     if (!placeResponse.ok) throw new Error("Place lookup unavailable");
     const placeData = await placeResponse.json() as { features?: PhotonFeature[] };
-    const feature = placeData.features?.[0];
+    const feature = selectDestinationCandidate(placeData.features ?? [], destinationQuery, start);
+    if (!feature) {
+      return NextResponse.json({
+        error: "Nuk gjetëm një përputhje të sigurt. Provo emrin e plotë të destinacionit.",
+      }, { status: 404 });
+    }
     const coordinates = feature?.geometry?.coordinates;
     const end: RoutePoint = {
       latitude: Number(coordinates?.[1]),

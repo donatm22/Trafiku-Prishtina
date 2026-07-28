@@ -15,6 +15,9 @@ test("integrates comparison, rerouting and closure enforcement", async () => {
   assert.match(routing, /isConfirmedClosure/);
   assert.match(routeApi, /routes: alternatives/);
   assert.match(routeApi, /calculatedAt/);
+  assert.match(routeApi, /selectDestinationCandidate/);
+  assert.match(routeApi, /searchParams\.set\("limit", "10"\)/);
+  assert.doesNotMatch(routeApi, /destinationQuery\}, Prishtinë/);
   assert.match(dashboard, /routeOptions/);
   assert.match(dashboard, /Rirregullim automatik aktiv/);
   assert.match(dashboard, /Përditësuar/);
