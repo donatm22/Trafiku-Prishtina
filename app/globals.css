@@ -87,6 +87,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .route-summary strong { font-size:.82rem; }
 .route-summary span { display:flex; align-items:center; gap:4px; color:var(--muted); font-size:.72rem; font-weight:750; }
 .route-summary span.has-incidents { color:var(--red-dark); }
+.route-summary span.route-live-status { color:var(--green); }
 .route-summary>button { flex:0 0 auto; padding:0; border:0; background:transparent; color:var(--red-dark); font-size:.72rem; font-weight:850; }
 .route-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
 .route-option { display:grid; gap:7px; min-width:0; padding:10px; border:1px solid var(--line); border-radius:5px; background:var(--paper); color:var(--ink); text-align:left; }

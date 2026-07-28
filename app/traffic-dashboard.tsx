@@ -8,6 +8,7 @@ import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
 import {
   hasTrafficStateChanged,
   REPORT_REFRESH_INTERVAL_MS,
+  shouldRerouteForMovement,
   trafficReportsFingerprint,
 } from "../lib/rerouting";
 import type { RoutePlan } from "../lib/routing";
@@ -141,6 +142,24 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       previousFocus?.focus();
     };
   }, [isReportOpen]);
+
+  useEffect(() => {
+    if (!routePlan || !navigator.geolocation) return;
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        const current = { latitude: coords.latitude, longitude: coords.longitude };
+        const now = Date.now();
+        if (!shouldRerouteForMovement(lastRouteStartRef.current, current, lastRerouteAtRef.current, now)) return;
+        lastRerouteAtRef.current = now;
+        void autoRerouteRef.current(current, "movement");
+      },
+      () => {
+        // Keep the current route when continuous location access is unavailable.
+      },
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 20_000 },
+    );
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [routePlan]);
 
   function locateCurrentPosition(forReport = false) {
     if (!navigator.geolocation) {
@@ -380,6 +399,7 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                   <span><Timer size={15} /> {Math.max(1, Math.round(routePlan.durationSeconds / 60))} min</span>
                   <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
                   <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
+                  <span className="route-live-status"><Navigation size={14} /> Rirregullim automatik aktiv</span>
                   {routePlan.incidentDelaySeconds > 0 && (
                     <span className="has-incidents">
                       +{Math.max(1, Math.round(routePlan.incidentDelaySeconds / 60))} min nga trafiku
