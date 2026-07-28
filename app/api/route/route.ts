@@ -90,12 +90,13 @@ export async function GET(request: Request) {
     const reports = await listTrafficReports();
     const alternatives = evaluateRouteAlternatives(candidates, reports);
     const fastest = selectQuickestRoute(candidates, reports);
+    const calculatedAt = new Date().toISOString();
     if (routeData.code === "Ok" && alternatives.length > 0 && !fastest) {
       const blockedDestination = destinationLabel(feature?.properties ?? {}, destinationQuery);
       return NextResponse.json({
         error: "Të gjitha rrugët e gjetura kalojnë nëpër mbyllje të konfirmuara.",
         routes: alternatives.map((alternative) =>
-          toRoutePlan(alternative, blockedDestination, start, end, alternatives.length),
+          toRoutePlan(alternative, blockedDestination, start, end, alternatives.length, calculatedAt),
         ),
       }, { status: 409 });
     }
@@ -105,9 +106,9 @@ export async function GET(request: Request) {
 
     const properties = feature?.properties ?? {};
     const destination = destinationLabel(properties, destinationQuery);
-    const plan = toRoutePlan(fastest, destination, start, end, alternatives.length);
+    const plan = toRoutePlan(fastest, destination, start, end, alternatives.length, calculatedAt);
     const routes = alternatives.map((alternative) =>
-      toRoutePlan(alternative, destination, start, end, alternatives.length),
+      toRoutePlan(alternative, destination, start, end, alternatives.length, calculatedAt),
     );
     return NextResponse.json({ route: plan, routes });
   } catch {
@@ -121,12 +122,14 @@ function toRoutePlan(
   start: RoutePoint,
   end: RoutePoint,
   evaluatedAlternatives: number,
+  calculatedAt: string,
 ): RoutePlan {
   return {
     ...alternative,
     destination,
     start,
     end,
+    calculatedAt,
     algorithm: "dijkstra",
     evaluatedAlternatives,
   };

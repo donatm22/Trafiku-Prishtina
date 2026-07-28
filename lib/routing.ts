@@ -11,6 +11,7 @@ export type RoutePlan = RouteAlternative & {
   destination: string;
   start: RoutePoint;
   end: RoutePoint;
+  calculatedAt: string;
   algorithm: "dijkstra";
   evaluatedAlternatives: number;
 };

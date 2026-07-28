@@ -400,6 +400,10 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                   <span>{(routePlan.distanceMeters / 1000).toFixed(1)} km</span>
                   <span>Dijkstra · {routePlan.evaluatedAlternatives} alternativa</span>
                   <span className="route-live-status"><Navigation size={14} /> Rirregullim automatik aktiv</span>
+                  <span>Përditësuar {new Date(routePlan.calculatedAt).toLocaleTimeString("sq-AL", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}</span>
                   {routePlan.incidentDelaySeconds > 0 && (
                     <span className="has-incidents">
                       +{Math.max(1, Math.round(routePlan.incidentDelaySeconds / 60))} min nga trafiku
