@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { findDuplicateCandidates, type DuplicateTrafficReport } from "../lib/duplicate-detection";
 import { CLEAR_VOTES_REQUIRED, type IncidentLifecycleUpdate } from "../lib/incident-lifecycle";
-import { SEED_REPORTS, type IncidentType, type TrafficReport } from "../lib/traffic";
+import { MOCK_REPORTS, SEED_REPORTS, type IncidentType, type TrafficReport } from "../lib/traffic";
 
 type NewTrafficReport = Pick<
   TrafficReport,
@@ -82,6 +82,28 @@ export async function ensureTrafficSchema() {
       ),
     );
   }
+  await db.batch(
+    MOCK_REPORTS.map((report) =>
+      db.prepare(`INSERT OR IGNORE INTO traffic_reports
+        (id,type,title,description,location_name,latitude,longitude,severity,confirmations,clear_votes,last_confirmed_at,created_at,expires_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .bind(
+          report.id,
+          report.type,
+          report.title,
+          report.description,
+          report.locationName,
+          report.latitude,
+          report.longitude,
+          report.severity,
+          report.confirmations,
+          report.clearVotes,
+          report.lastConfirmedAt,
+          report.createdAt,
+          report.expiresAt,
+        ),
+    ),
+  );
   initialized = true;
 }
 
@@ -101,6 +123,7 @@ export async function listTrafficReports(): Promise<TrafficReport[]> {
       created_at AS createdAt,expires_at AS expiresAt
       FROM traffic_reports
       WHERE cleared_at IS NULL AND expires_at > ? AND (
+        id LIKE 'mock-%' OR
         (type = 'jam' AND COALESCE(last_confirmed_at,created_at) > ?) OR
         (type = 'accident' AND COALESCE(last_confirmed_at,created_at) > ?) OR
         (type = 'closure' AND COALESCE(last_confirmed_at,created_at) > ?) OR
