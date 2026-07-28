@@ -5,6 +5,11 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { Check, LocateFixed, MapPin, Navigation, Route as RouteIcon, Search, Timer, TriangleAlert, X } from "lucide-react";
 import type { DuplicateTrafficReport } from "../lib/duplicate-detection";
 import { CLEAR_VOTES_REQUIRED } from "../lib/incident-lifecycle";
+import {
+  hasTrafficStateChanged,
+  REPORT_REFRESH_INTERVAL_MS,
+  trafficReportsFingerprint,
+} from "../lib/rerouting";
 import type { RoutePlan } from "../lib/routing";
 import { INCIDENT_TYPES, type IncidentType, type TrafficReport } from "../lib/traffic";
 import { IncidentFeed } from "./incident-feed";
@@ -21,6 +26,10 @@ type ReportPayload = Point & {
   description: string;
   locationName: string;
   severity: string;
+};
+type RouteApiResponse = {
+  route: RoutePlan;
+  routes: RoutePlan[];
 };
 
 const EMPTY_POINT = { latitude: 42.6585, longitude: 21.1615 };
@@ -47,6 +56,43 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
   const [isRouting, setRouting] = useState(false);
   const reportSheetRef = useRef<HTMLElement>(null);
   const reportFormRef = useRef<HTMLFormElement>(null);
+  const routePlanRef = useRef<RoutePlan | null>(null);
+  const routeDestinationRef = useRef("");
+  const lastRouteStartRef = useRef<Point | null>(null);
+  const lastRerouteAtRef = useRef(0);
+  const routeRequestInFlightRef = useRef(false);
+  const reportsFingerprintRef = useRef(trafficReportsFingerprint(initialReports));
+  const autoRerouteRef = useRef<(start: Point, reason: "traffic" | "movement") => Promise<void>>(async () => {});
+
+  useEffect(() => {
+    routePlanRef.current = routePlan;
+  }, [routePlan]);
+
+  autoRerouteRef.current = async (start, reason) => {
+    const destination = routeDestinationRef.current;
+    if (!destination || routeRequestInFlightRef.current) return;
+    routeRequestInFlightRef.current = true;
+    setRouting(true);
+    setRouteStatus(reason === "traffic"
+      ? "Trafiku ndryshoi. Duke kontrolluar një rrugë më të shpejtë…"
+      : "Duke përditësuar rrugën nga vendndodhja jote…");
+    try {
+      const data = await requestRoutePlans(destination, start);
+      routePlanRef.current = data.route;
+      lastRouteStartRef.current = start;
+      lastRerouteAtRef.current = Date.now();
+      setRoutePlan(data.route);
+      setRouteOptions(data.routes);
+      setRouteStatus(reason === "traffic"
+        ? "Rruga u përditësua sipas trafikut të fundit."
+        : "Rruga u përditësua nga pozicioni yt.");
+    } catch {
+      setRouteStatus("Nuk mundëm ta përditësojmë tani. Rruga e fundit mbetet aktive.");
+    } finally {
+      routeRequestInFlightRef.current = false;
+      setRouting(false);
+    }
+  };
 
   useEffect(() => {
     const openFromHash = () => {
@@ -62,13 +108,20 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       try {
         const response = await fetch("/api/reports", { headers: { accept: "application/json" } });
         const data = await response.json() as { reports?: TrafficReport[] };
-        if (response.ok && data.reports) setReports(data.reports);
+        if (response.ok && data.reports) {
+          const trafficChanged = hasTrafficStateChanged(reportsFingerprintRef.current, data.reports);
+          reportsFingerprintRef.current = trafficReportsFingerprint(data.reports);
+          setReports(data.reports);
+          if (trafficChanged && routePlanRef.current && lastRouteStartRef.current) {
+            void autoRerouteRef.current(lastRouteStartRef.current, "traffic");
+          }
+        }
       } catch {
         // Keep the last good map state during a temporary connection failure.
       }
     }
     void refreshReports();
-    const refresh = window.setInterval(refreshReports, 45_000);
+    const refresh = window.setInterval(refreshReports, REPORT_REFRESH_INTERVAL_MS);
     return () => window.clearInterval(refresh);
   }, []);
 
@@ -133,20 +186,13 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
           { enableHighAccuracy: true, timeout: 8000 },
         );
       });
-      const params = new URLSearchParams({
-        destination,
-        latitude: String(start.latitude),
-        longitude: String(start.longitude),
-      });
-      const response = await fetch(`/api/route?${params.toString()}`, {
-        headers: { accept: "application/json" },
-      });
-      const data = await response.json() as { route?: RoutePlan; routes?: RoutePlan[]; error?: string };
-      if (!response.ok || !data.route) {
-        throw new Error(data.error ?? "Rruga nuk u gjet.");
-      }
+      const data = await requestRoutePlans(destination, start);
+      routeDestinationRef.current = destination;
+      lastRouteStartRef.current = start;
+      lastRerouteAtRef.current = Date.now();
+      routePlanRef.current = data.route;
       setRoutePlan(data.route);
-      setRouteOptions(data.routes?.length ? data.routes : [data.route]);
+      setRouteOptions(data.routes);
       setFocusPoint(null);
       setRouteStatus("");
     } catch (error) {
@@ -346,6 +392,8 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                 <button type="button" onClick={() => {
                   setRoutePlan(null);
                   setRouteOptions([]);
+                  routePlanRef.current = null;
+                  routeDestinationRef.current = "";
                 }}>Hiqe rrugën</button>
               </div>
               <div className="route-options" aria-label="Krahaso rrugët">
@@ -354,7 +402,10 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
                     className={option.id === routePlan.id ? "route-option is-active" : "route-option"}
                     key={option.id}
                     type="button"
-                    onClick={() => setRoutePlan(option)}
+                    onClick={() => {
+                      routePlanRef.current = option;
+                      setRoutePlan(option);
+                    }}
                     aria-pressed={option.id === routePlan.id}
                   >
                     <span className="route-option-heading">
@@ -532,4 +583,23 @@ export function TrafficDashboard({ initialReports }: { initialReports: TrafficRe
       )}
     </>
   );
+}
+
+async function requestRoutePlans(destination: string, start: Point): Promise<RouteApiResponse> {
+  const params = new URLSearchParams({
+    destination,
+    latitude: String(start.latitude),
+    longitude: String(start.longitude),
+  });
+  const response = await fetch(`/api/route?${params.toString()}`, {
+    headers: { accept: "application/json" },
+  });
+  const data = await response.json() as { route?: RoutePlan; routes?: RoutePlan[]; error?: string };
+  if (!response.ok || !data.route) {
+    throw new Error(data.error ?? "Rruga nuk u gjet.");
+  }
+  return {
+    route: data.route,
+    routes: data.routes?.length ? data.routes : [data.route],
+  };
 }
